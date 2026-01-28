@@ -1,21 +1,37 @@
 import { api } from "./client";
 
-export type LoginResponse = {
-  token: string;
-  user: { id: string; username: string; role: "admin" | "employee" };
+export type Role = "admin" | "employee";
+
+export type User = {
+  id?: string;
+  username: string;
+  role: Role;
 };
 
-export async function login(username: string, password: string) {
+export type LoginResponse = {
+  token: string;
+  user: User;
+};
+
+// ✅ LOGIN
+export async function login(username: string, password: string): Promise<LoginResponse> {
   const res = await api.post<LoginResponse>("/auth/login", { username, password });
   return res.data;
 }
 
-export async function register(username: string, password: string) {
-  const res = await api.post<LoginResponse>("/auth/register", { username, password });
+// ✅ REGISTER
+// לא מניחים שהבקאנד מחזיר token בהרשמה. רק יוצרים משתמש.
+export async function register(
+  username: string,
+  password: string,
+  role: Role = "employee"
+): Promise<{ message?: string; user?: User }> {
+  const res = await api.post("/auth/register", { username, password, role });
   return res.data;
 }
 
-export async function me() {
-  const res = await api.get<{ id: string; username: string; role: "admin" | "employee" }>("/auth/me");
+// ✅ ME
+export async function me(): Promise<User> {
+  const res = await api.get<User>("/auth/me");
   return res.data;
 }

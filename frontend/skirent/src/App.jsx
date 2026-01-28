@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import Login from "./components/pages/Login";
@@ -15,16 +15,56 @@ import ActivityDrawer from "./components/layouts/header/ActivityDrawer";
 import { toast, Toaster } from "sonner";
 import { mockProducts } from "./types/types";
 
+/**
+ * Safer localStorage access (prevents "Access is denied" crashes in edge cases)
+ */
+function safeGetToken() {
+  try {
+    return localStorage.getItem("token");
+  } catch (e) {
+    console.warn("Cannot access localStorage token:", e);
+    return null;
+  }
+}
+
+function safeRemoveToken() {
+  try {
+    localStorage.removeItem("token");
+  } catch (e) {
+    console.warn("Cannot remove localStorage token:", e);
+  }
+}
+
 function AppContent() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
 
   const [showRegister, setShowRegister] = useState(false);
   const [showActivityDrawer, setShowActivityDrawer] = useState(false);
   const [currentView, setCurrentView] = useState("products");
   const [showAddProductDialog, setShowAddProductDialog] = useState(false);
 
-  // ✅ SINGLE SOURCE OF TRUTH
+  // ✅ SINGLE SOURCE OF TRUTH (currently mock; later replace with API state)
   const [products, setProducts] = useState(mockProducts);
+
+  // Auth gate based on token (source of truth for your axios interceptor)
+  const [token, setToken] = useState(() => safeGetToken());
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    // Re-check token on mount (and mark auth check complete)
+    setToken(safeGetToken());
+    setAuthChecked(true);
+  }, []);
+
+  const isAuthed = useMemo(() => Boolean(token), [token]);
+
+  const handleLogout = () => {
+    safeRemoveToken();
+    setToken(null);
+    setShowRegister(false);
+    setCurrentView("products");
+    toast.success("Logged out");
+  };
 
   const handleRental = (productId, days) => {
     toast.success(`Product rented for ${days} days successfully!`);
@@ -49,7 +89,7 @@ function AppContent() {
 
   const handleAddProduct = (productData) => {
     const newProduct = {
-      id: `p${Date.now()}`, // simple unique id
+      id: `p${Date.now()}`,
       ...productData,
       quantity: Number(productData.quantity || 0),
       availableQuantity: Number(productData.availableQuantity || 0),
@@ -69,8 +109,17 @@ function AppContent() {
     console.log("Edit Product:", productId, updatedFields);
   };
 
+  // Small guard to avoid flashing UI before checking localStorage
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
   // Not authenticated: Login/Register
-  if (!isAuthenticated) {
+  if (!isAuthed) {
     if (showRegister) {
       return (
         <Register
@@ -82,7 +131,21 @@ function AppContent() {
         />
       );
     }
-    return <Login onRegisterClick={() => setShowRegister(true)} />;
+
+    /**
+     * IMPORTANT:
+     * After successful login, your Login.jsx must:
+     * localStorage.setItem("token", <jwt>);
+     * and then call `onLoginSuccess?.()` so App can refresh token state.
+     *
+     * If your Login.jsx currently does not accept this prop, we’ll add it next.
+     */
+    return (
+      <Login
+        onRegisterClick={() => setShowRegister(true)}
+        onLoginSuccess={() => setToken(safeGetToken())}
+      />
+    );
   }
 
   // Authenticated view
@@ -95,6 +158,7 @@ function AppContent() {
         onAddProductClick={
           user?.role === "admin" ? () => setShowAddProductDialog(true) : undefined
         }
+        onLogoutClick={handleLogout}
       />
 
       {/* Tabs */}
