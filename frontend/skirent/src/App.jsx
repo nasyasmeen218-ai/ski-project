@@ -27,14 +27,6 @@ function safeGetToken() {
   }
 }
 
-function safeRemoveToken() {
-  try {
-    localStorage.removeItem("token");
-  } catch (e) {
-    console.warn("Cannot remove localStorage token:", e);
-  }
-}
-
 function AppContent() {
   const { user } = useAuth();
 
@@ -51,39 +43,48 @@ function AppContent() {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    // Re-check token on mount (and mark auth check complete)
     setToken(safeGetToken());
     setAuthChecked(true);
   }, []);
 
   const isAuthed = useMemo(() => Boolean(token), [token]);
 
+  // ✅ FIXED LOGOUT
   const handleLogout = () => {
-    safeRemoveToken();
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("username");
+    } catch (e) {
+      console.warn("Cannot access localStorage:", e);
+    }
+
     setToken(null);
     setShowRegister(false);
     setCurrentView("products");
-    toast.success("Logged out");
+    toast.success("Logged out", { position: "top-center" });
   };
 
   const handleRental = (productId, days) => {
-    toast.success(`Product rented for ${days} days successfully!`);
+    toast.success(`Product rented for ${days} days successfully!`, {
+      position: "top-center",
+    });
     console.log("Rental:", productId, days);
   };
 
   const handleTake = (productId) => {
-    toast.success("Product taken successfully!");
+    toast.success("Product taken successfully!", { position: "top-center" });
     console.log("Take:", productId);
   };
 
   const handleReturn = (productId) => {
-    toast.success("Product returned successfully!");
+    toast.success("Product returned successfully!", { position: "top-center" });
     console.log("Return:", productId);
   };
 
   const handleDeleteProduct = (productId) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
-    toast.success("Product deleted successfully!");
+    toast.success("Product deleted successfully!", { position: "top-center" });
     console.log("Delete:", productId);
   };
 
@@ -97,7 +98,7 @@ function AppContent() {
     };
 
     setProducts((prev) => [newProduct, ...prev]);
-    toast.success("Product added successfully!");
+    toast.success("Product added successfully!", { position: "top-center" });
     console.log("Add Product:", newProduct);
   };
 
@@ -105,7 +106,7 @@ function AppContent() {
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, ...updatedFields } : p))
     );
-    toast.success("Product updated successfully!");
+    toast.success("Product updated successfully!", { position: "top-center" });
     console.log("Edit Product:", productId, updatedFields);
   };
 
@@ -126,20 +127,14 @@ function AppContent() {
           onBackClick={() => setShowRegister(false)}
           onSuccess={() => {
             setShowRegister(false);
-            toast.success("Registered successfully! You can now sign in");
+            toast.success("Registered successfully! You can now sign in", {
+              position: "top-center",
+            });
           }}
         />
       );
     }
 
-    /**
-     * IMPORTANT:
-     * After successful login, your Login.jsx must:
-     * localStorage.setItem("token", <jwt>);
-     * and then call `onLoginSuccess?.()` so App can refresh token state.
-     *
-     * If your Login.jsx currently does not accept this prop, we’ll add it next.
-     */
     return (
       <Login
         onRegisterClick={() => setShowRegister(true)}
@@ -151,8 +146,6 @@ function AppContent() {
   // Authenticated view
   return (
     <div className="min-h-screen bg-gray-50">
-      <Toaster position="top-right" richColors />
-
       <Navbar
         onActivityClick={() => setShowActivityDrawer(true)}
         onAddProductClick={
@@ -204,12 +197,7 @@ function AppContent() {
               onReturn={handleReturn}
             />
           ) : (
-            <AdminProducts
-              products={products}
-              onDelete={handleDeleteProduct}
-              onAddProduct={handleAddProduct}
-              onEditProduct={handleEditProduct}
-            />
+            <AdminProducts />
           ))}
 
         {currentView === "audit" && user?.role === "admin" && <AuditLogs />}
@@ -236,6 +224,8 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
+      {/* ✅ One global toaster for the entire app (Login/Register included) */}
+      <Toaster position="top-center" richColors />
       <AppContent />
     </AuthProvider>
   );
