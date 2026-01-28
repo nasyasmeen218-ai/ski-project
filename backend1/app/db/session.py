@@ -2,12 +2,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+print("Database URL:", settings["DATABASE_URL"])  
 
 engine = create_engine(
     settings["DATABASE_URL"],
-    echo=True,          # מדפיס SQL לקונסול (נוח לפיתוח)
+    echo=True,         
     future=True
 )
+
 
 SessionLocal = sessionmaker(
     bind=engine,

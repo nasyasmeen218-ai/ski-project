@@ -15,7 +15,6 @@ router = APIRouter()
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
         user = create_user(db, payload.username, payload.password)
-        # מחזירים גם token מיד אחרי הרשמה (נוח לפרונט)
         result = login_and_get_token(db, payload.username, payload.password)
         return result
     except ValueError as e:

@@ -8,12 +8,14 @@ def create_user(db: Session, username: str, password: str) -> User:
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise ValueError("USERNAME_EXISTS")
-
-    user = User(
-        username=username,
-        password_hash=hash_password(password),
-        role="employee",
-    )
+    try:
+        user = User(
+            username=username,
+            password_hash=hash_password(password),
+            role="employee",
+        )
+    except Exception as e:
+        raise ValueError("INVALID_USER_DATA") from e
     db.add(user)
     db.commit()
     db.refresh(user)
