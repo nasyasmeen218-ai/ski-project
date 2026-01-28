@@ -9,8 +9,8 @@ import {
   getProducts,
   deleteProduct as apiDeleteProduct,
   updateProduct as apiUpdateProduct,
-} 
-from "../../api/productsApi"
+} from "../../api/productsApi";
+
 
 export default function AdminProducts({
   // אפשר להשאיר callbacks אם יש לך הורה שמנהל state,
