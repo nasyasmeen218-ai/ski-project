@@ -3,9 +3,23 @@ import { LogOut, User, Activity } from "lucide-react";
 import { useState } from "react";
 import logo from "../../../assets/logo.png";
 
-export default function Navbar({ onActivityClick, onAddProductClick }) {
+export default function Navbar({ onActivityClick, onAddProductClick, onLogoutClick }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleLogout = () => {
+    // קודם נסגור את התפריט
+    setShowUserMenu(false);
+
+    // ✅ מקור האמת אצלך הוא App.jsx (token/localStorage)
+    if (onLogoutClick) {
+      onLogoutClick();
+      return;
+    }
+
+    // fallback (אם בעתיד תחליטי שה-AuthContext מנהל הכל)
+    logout?.();
+  };
 
   return (
     <nav className="bg-white border-b border-gray-200">
@@ -20,6 +34,7 @@ export default function Navbar({ onActivityClick, onAddProductClick }) {
               <button
                 onClick={onAddProductClick}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                type="button"
               >
                 + Add Product
               </button>
@@ -40,7 +55,9 @@ export default function Navbar({ onActivityClick, onAddProductClick }) {
                 className="flex items-center gap-2 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all"
                 type="button"
               >
-                <span className="text-sm font-medium">Hi, {user?.name}</span>
+                <span className="text-sm font-medium">
+                  Hi, {user?.username || user?.name || "User"}
+                </span>
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
                 </div>
@@ -54,17 +71,20 @@ export default function Navbar({ onActivityClick, onAddProductClick }) {
                   />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
                     <div className="p-4 border-b border-gray-200">
-                      <p className="font-medium text-gray-900">{user?.name}</p>
-                      <p className="text-sm text-gray-600">{user?.email}</p>
+                      <p className="font-medium text-gray-900">
+                        {user?.username || user?.name || "User"}
+                      </p>
+                      {user?.email && (
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                      )}
                       <p className="text-xs text-gray-500 mt-1">
-                        Role:{" "}
-                        {user?.role === "admin" ? "Administrator" : "Employee"}
+                        Role: {user?.role === "admin" ? "Administrator" : "Employee"}
                       </p>
                     </div>
 
                     <div className="p-2">
                       <button
-                        onClick={logout}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-md transition-all"
                         type="button"
                       >
