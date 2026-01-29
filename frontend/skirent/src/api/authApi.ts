@@ -19,14 +19,13 @@ export async function login(username: string, password: string): Promise<LoginRe
   return res.data;
 }
 
-// ✅ REGISTER
-// לא מניחים שהבקאנד מחזיר token בהרשמה. רק יוצרים משתמש.
+// ✅ REGISTER - מעודכן לפי משימת Cleanup: שולח רק username ו-password
 export async function register(
   username: string,
-  password: string,
-  role: Role = "employee"
+  password: string
 ): Promise<{ message?: string; user?: User }> {
-  const res = await api.post("/auth/register", { username, password, role });
+  // הסרנו את ה-role מהגוף של הבקשה (Payload)
+  const res = await api.post("/auth/register", { username, password });
   return res.data;
 }
 

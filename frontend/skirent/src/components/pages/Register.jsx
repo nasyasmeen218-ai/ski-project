@@ -41,7 +41,7 @@ function showApiError(err, fallback = "Something went wrong") {
 export default function Register({ onBackClick, onSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("employee");
+  // ה-role הוסר מכאן בהתאם למשימה
   const [loading, setLoading] = useState(false);
 
   const toastOpts = { position: "top-center" };
@@ -56,7 +56,8 @@ export default function Register({ onBackClick, onSuccess }) {
 
     try {
       setLoading(true);
-      await registerApi(username.trim(), password, role);
+      // ✅ שינוי: שולחים רק username ו-password ללא role
+      await registerApi(username.trim(), password);
 
       toast.success("Registered successfully! You can now sign in", toastOpts);
       onSuccess?.();
@@ -91,14 +92,7 @@ export default function Register({ onBackClick, onSuccess }) {
             autoComplete="new-password"
           />
 
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full border rounded px-3 py-2 bg-white"
-          >
-            <option value="employee">employee</option>
-            <option value="admin">admin</option>
-          </select>
+          {/* ✅ שינוי: ה-select של ה-role הוסר מה-UI כנדרש */}
 
           <button
             type="submit"
