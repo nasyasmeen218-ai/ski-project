@@ -7,17 +7,12 @@ import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 
 import {
   getProducts,
+  createProduct as apiCreateProduct,
   deleteProduct as apiDeleteProduct,
   updateProduct as apiUpdateProduct,
 } from "../../api/productsApi";
 
-
-export default function AdminProducts({
-  // אפשר להשאיר callbacks אם יש לך הורה שמנהל state,
-  // אבל הקובץ הזה עובד גם לבד מול ה-API.
-  onDelete,
-  onEditProduct,
-}) {
+export default function AdminProducts({ addSignal = 0 }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,17 +26,23 @@ export default function AdminProducts({
 
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [adding, setAdding] = useState(false);
 
-  // Load products from backend
+  const toastOpts = { position: "top-center" };
+
+  const refreshProducts = async () => {
+    const data = await getProducts();
+    setProducts(data);
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         setIsLoading(true);
-        const data = await getProducts();
-        setProducts(data);
+        await refreshProducts();
       } catch (e) {
         console.error(e);
-        toast.error("Failed to load products (check login/token)");
+        toast.error("Failed to load products (check login/token)", toastOpts);
       } finally {
         setIsLoading(false);
       }
@@ -49,7 +50,11 @@ export default function AdminProducts({
     load();
   }, []);
 
-  // keep viewing product in sync with latest products list
+  // open Add dialog when Navbar triggers it
+  useEffect(() => {
+    if (addSignal > 0) setAdding(true);
+  }, [addSignal]);
+
   useEffect(() => {
     if (!viewingProduct) return;
     const latest = products.find((p) => p.id === viewingProduct.id);
@@ -59,14 +64,10 @@ export default function AdminProducts({
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      if (
-        searchQuery &&
-        !product.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase()))
         return false;
 
-      if (selectedCategory !== "all" && product.category !== selectedCategory)
-        return false;
+      if (selectedCategory !== "all" && product.category !== selectedCategory) return false;
 
       if (
         selectedCategory === "clothing" &&
@@ -77,8 +78,7 @@ export default function AdminProducts({
 
       if (selectedType !== "all" && product.type !== selectedType) return false;
 
-      if (product.quantity < minQuantity || product.quantity > maxQuantity)
-        return false;
+      if (product.quantity < minQuantity || product.quantity > maxQuantity) return false;
 
       return true;
     });
@@ -115,36 +115,37 @@ export default function AdminProducts({
 
   const handleDelete = async (productId) => {
     try {
-      // אם יש הורה שמטפל במחיקה – נכבד אותו
-      if (onDelete) {
-        await onDelete(productId);
-      } else {
-        await apiDeleteProduct(productId);
-        setProducts((prev) => prev.filter((p) => p.id !== productId));
-      }
-      toast.success("Product deleted");
+      await apiDeleteProduct(productId);
+      setProducts((prev) => prev.filter((p) => p.id !== productId));
+      toast.success("Product deleted", toastOpts);
     } catch (e) {
       console.error(e);
-      toast.error("Delete failed");
+      toast.error("Delete failed", toastOpts);
     }
   };
 
   const handleEditSubmit = async (productData) => {
     if (!editingProduct) return;
     try {
-      if (onEditProduct) {
-        await onEditProduct(editingProduct.id, productData);
-      } else {
-        const updated = await apiUpdateProduct(editingProduct.id, productData);
-        setProducts((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
-        );
-      }
-      toast.success("Product updated");
+      const updated = await apiUpdateProduct(editingProduct.id, productData);
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success("Product updated", toastOpts);
       setEditingProduct(null);
     } catch (e) {
       console.error(e);
-      toast.error("Edit failed");
+      toast.error("Edit failed", toastOpts);
+    }
+  };
+
+  const handleAddSubmit = async (productData) => {
+    try {
+      await apiCreateProduct(productData);
+      toast.success("Product added", toastOpts);
+      setAdding(false);
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error("Add failed", toastOpts);
     }
   };
 
@@ -245,9 +246,7 @@ export default function AdminProducts({
 
       <div className="py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Product Management
-          </h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Product Management</h2>
           <p className="text-gray-600">Manage all products in the system</p>
         </div>
 
@@ -349,15 +348,19 @@ export default function AdminProducts({
         ) : (
           <div className="text-center py-12">
             <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No products found
-            </h3>
-            <p className="text-gray-500">
-              Try adjusting your filters or search query
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-500">Try adjusting your filters or search query</p>
           </div>
         )}
       </div>
+
+      {adding && (
+        <ProductFormDialog
+          mode="add"
+          onConfirm={handleAddSubmit}
+          onClose={() => setAdding(false)}
+        />
+      )}
 
       {editingProduct && (
         <ProductFormDialog
@@ -366,76 +369,6 @@ export default function AdminProducts({
           onConfirm={handleEditSubmit}
           onClose={() => setEditingProduct(null)}
         />
-      )}
-
-      {viewingProduct && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div className="bg-blue-600 p-6 text-white rounded-t-lg">
-              <h2 className="text-xl font-bold">Product Details</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Product Name</p>
-                <p className="font-medium text-gray-900">
-                  {viewingProduct.name}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Category</p>
-                <p className="font-medium text-gray-900">
-                  {viewingProduct.category === "clothing"
-                    ? "Clothing"
-                    : "Equipment"}
-                </p>
-              </div>
-
-              {viewingProduct.gender && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Gender</p>
-                  <p className="font-medium text-gray-900">
-                    {viewingProduct.gender === "male" ? "Men" : "Women"}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Type</p>
-                <p className="font-medium text-gray-900">{viewingProduct.type}</p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {viewingProduct.availableQuantity}
-                  </p>
-                  <p className="text-xs text-gray-600">Available</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-orange-600">
-                    {viewingProduct.rentedQuantity}
-                  </p>
-                  <p className="text-xs text-gray-600">Rented</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {viewingProduct.quantity}
-                  </p>
-                  <p className="text-xs text-gray-600">Total</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setViewingProduct(null)}
-                className="w-full py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all mt-6 font-medium"
-                type="button"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

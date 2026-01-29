@@ -27,3 +27,8 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(products_router, prefix="/products", tags=["products"])
 app.include_router(rentals_router, prefix="/rentals", tags=["rentals"])
 app.include_router(audit_logs_router, prefix="/audit-logs", tags=["audit-logs"])
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
