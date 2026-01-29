@@ -80,7 +80,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
       if (selectedType !== "all" && product.type !== selectedType) return false;
 
-      const available = Number(product.availableQuantity ?? 0);
+      const available = Number(product.availableQuantity ?? product.quantity ?? 0);
       if (available < minQuantity || available > maxQuantity) return false;
 
       return true;
@@ -118,12 +118,11 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const handleRentalOpen = (product) => setRentalProduct(product);
 
-  // ✅ from RentalDialog: (days, qty)
+  // ✅ תיקון משימה: שימוש ב-days ו-qty ורענון מוצרים
   const handleRentalConfirm = async (days, qty) => {
     if (!rentalProduct) return;
 
     try {
-      // אם App.jsx עדיין שולח callback – נכבד אותו (אבל נוסיף qty)
       if (onRental) {
         await onRental(rentalProduct.id, days, qty);
       } else {
@@ -139,6 +138,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
+  // ✅ תיקון משימה: שליחת qty=1 ורענון מוצרים
   const handleTake = async (productId) => {
     try {
       if (onTake) {
@@ -154,8 +154,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // אצלך prop נקרא onReturn, אבל בבאקנד יש שתי החזרות:
-  // return-taken ו return-rented. כאן נשתמש ב-return-taken לפעולת "Return".
+  // ✅ תיקון משימה: שליחת qty=1 ורענון מוצרים
   const handleReturnTaken = async (productId) => {
     try {
       if (onReturn) {
@@ -171,7 +170,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // אופציונלי (אם ב-ProductCard יש כפתור להחזרת השכרה)
   const handleReturnRented = async (productId) => {
     try {
       await returnRentedProduct(productId, 1);
@@ -185,7 +183,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   return (
     <div>
-      {/* Category header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 py-4">
@@ -197,7 +194,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "all"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -213,7 +210,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "clothing"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -229,7 +226,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "equipment"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -280,7 +277,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         </div>
       </div>
 
-      <div className="py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Products</h2>
           <p className="text-gray-600">Browse and manage inventory</p>
@@ -295,8 +292,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                 : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
             }`}
             type="button"
-            aria-label="Toggle filters"
-            title="Filters"
           >
             <Filter className="w-5 h-5" />
           </button>
@@ -307,7 +302,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           </div>
@@ -346,7 +341,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                   value={minQuantity}
                   onChange={(e) => setMinQuantity(Number(e.target.value))}
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
 
@@ -359,7 +354,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                   value={maxQuantity}
                   onChange={(e) => setMaxQuantity(Number(e.target.value))}
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
             </div>
@@ -367,7 +362,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         )}
 
         {isLoading ? (
-          <div className="text-gray-500">Loading products...</div>
+          <div className="text-gray-500 py-10 text-center">Loading products...</div>
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
@@ -378,8 +373,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                 onRental={() => handleRentalOpen(product)}
                 onTake={() => handleTake(product.id)}
                 onReturn={() => handleReturnTaken(product.id)}
-                // אם יש לך כפתור נפרד להחזרת השכרה ב-ProductCard, נחבר אותו אחר כך
-                // onReturnRented={() => handleReturnRented(product.id)}
               />
             ))}
           </div>

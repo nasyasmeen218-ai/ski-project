@@ -14,50 +14,59 @@ export type Product = {
 export type CreateProductPayload = Omit<Product, "id">;
 export type UpdateProductPayload = Partial<Omit<Product, "id">>;
 
-// ✅ GET /products
+// ✅ GET /products - שליפת כל המוצרים
 export async function getProducts(): Promise<Product[]> {
   const res = await api.get<Product[]>("/products");
   return res.data;
 }
 
-// ✅ POST /products (Admin)
+// ✅ POST /products (Admin) - יצירת מוצר חדש
 export async function createProduct(payload: CreateProductPayload): Promise<Product> {
   const res = await api.post<Product>("/products", payload);
   return res.data;
 }
 
-// ✅ PUT /products/{id} (Admin)
+// ✅ PUT /products/{id} (Admin) - עדכון מוצר
 export async function updateProduct(id: string, payload: UpdateProductPayload): Promise<Product> {
   const res = await api.put<Product>(`/products/${id}`, payload);
   return res.data;
 }
 
-// ✅ DELETE /products/{id} (Admin)
+// ✅ DELETE /products/{id} (Admin) - מחיקת מוצר
 export async function deleteProduct(id: string): Promise<{ ok?: boolean; message?: string }> {
   const res = await api.delete(`/products/${id}`);
   return res.data;
 }
 
-// --- Inventory / Rentals actions ---
-// ✅ POST /products/{id}/take  { qty }
+// --- Inventory / Actions (משימה 3 והלאה) ---
+
+// ✅ POST /products/{id}/take - לקיחת מוצר למלאי מיידי
 export async function takeProduct(productId: string, qty: number = 1): Promise<any> {
   const res = await api.post(`/products/${productId}/take`, { qty });
   return res.data;
 }
 
-// ✅ POST /products/{id}/return-taken  { qty }
+// ✅ POST /products/{id}/return - החזרת מוצר שנלקח (תיקנו את הנתיב ל-return)
 export async function returnTakenProduct(productId: string, qty: number = 1): Promise<any> {
-  const res = await api.post(`/products/${productId}/return-taken`, { qty });
+  const res = await api.post(`/products/${productId}/return`, { qty });
   return res.data;
 }
 
-// ✅ POST /products/{id}/rent  { qty, days }
+// ✅ GET /products/audit-logs - שליפת דוחות המלאי (הפונקציה שהוספנו לטבלה)
+export async function getAuditLogs(): Promise<any[]> {
+  const res = await api.get("/products/audit-logs");
+  return res.data;
+}
+
+// --- Rental Actions (למקרה שהן נשארות פה ולא ב-RentalsApi) ---
+
+// ✅ POST /products/{id}/rent - השכרת מוצר (חובה לשלוח days ו-qty)
 export async function rentProduct(productId: string, days: number, qty: number = 1): Promise<any> {
   const res = await api.post(`/products/${productId}/rent`, { qty, days });
   return res.data;
 }
 
-// ✅ POST /products/{id}/return-rented  { qty }
+// ✅ POST /products/{id}/return-rented - החזרת מוצר מהשכרה
 export async function returnRentedProduct(productId: string, qty: number = 1): Promise<any> {
   const res = await api.post(`/products/${productId}/return-rented`, { qty });
   return res.data;
