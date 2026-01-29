@@ -13,6 +13,7 @@ export default function AuditLogs() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
+        setIsLoading(true);
         const data = await getAuditLogs();
         setRecords(data);
       } catch (err) {
@@ -46,7 +47,7 @@ export default function AuditLogs() {
     return true;
   });
 
-  // ✅ Export CSV with BOM (Hebrew/Excel friendly)
+  // ✅ Export CSV (Excel + Hebrew friendly)
   const exportCSV = () => {
     if (!filteredRecords.length) {
       toast.info("No data to export");
@@ -63,12 +64,8 @@ export default function AuditLogs() {
       r.createdAt ? new Date(r.createdAt).toLocaleString() : "",
     ]);
 
-    const escapeCSV = (value) => {
-      const s = String(value ?? "");
-      return `"${s.replace(/"/g, '""')}"`;
-    };
+    const escapeCSV = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
-    // ✅ שימי לב: ; כדי שאקסל בעברית יפתח כטבלה יותר טוב
     const csv =
       "\uFEFF" +
       [headers, ...rows]
@@ -98,53 +95,53 @@ export default function AuditLogs() {
 
     const rowsHtml = filteredRecords
       .map((r) => {
-        const user = r.actorUserName || "";
-        const product = r.meta?.name || "";
-        const action = r.action || "";
-        const qty = r.qty ?? "";
-        const date = r.createdAt ? new Date(r.createdAt).toLocaleString() : "";
         return `<tr>
-          <td>${user}</td>
-          <td>${product}</td>
-          <td>${action}</td>
-          <td>${qty}</td>
-          <td>${date}</td>
+          <td>${r.actorUserName || ""}</td>
+          <td>${r.meta?.name || ""}</td>
+          <td>${r.action || ""}</td>
+          <td>${r.qty ?? ""}</td>
+          <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</td>
         </tr>`;
       })
       .join("");
 
     const html = `
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Inventory Reports</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 24px; }
-          h1 { margin: 0 0 12px; }
-          .sub { color: #555; margin: 0 0 18px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background: #f3f4f6; }
-        </style>
-      </head>
-      <body>
-        <h1>Inventory Reports</h1>
-        <p class="sub">Generated: ${new Date().toLocaleString()}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>User</th><th>Product</th><th>Action</th><th>Qty</th><th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-        <script>
-          window.onload = () => window.print();
-        </script>
-      </body>
-    </html>`;
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Inventory Reports</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; }
+            h1 { margin-bottom: 6px; }
+            .sub { color: #555; margin-bottom: 18px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Inventory Reports</h1>
+          <p class="sub">Generated: ${new Date().toLocaleString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Product</th>
+                <th>Action</th>
+                <th>Qty</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = () => window.print();
+          </script>
+        </body>
+      </html>
+    `;
 
     const w = window.open("", "_blank");
     if (!w) {
@@ -239,7 +236,9 @@ export default function AuditLogs() {
                   <td className="p-3">{r.action}</td>
                   <td className="p-3">{r.qty}</td>
                   <td className="p-3">
-                    {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
+                    {r.createdAt
+                      ? new Date(r.createdAt).toLocaleString()
+                      : "-"}
                   </td>
                 </tr>
               ))}
