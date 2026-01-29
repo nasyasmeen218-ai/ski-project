@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Filter, Package2 } from "lucide-react";
-import { mockProducts } from "../../types/types.js";
+import { toast } from "sonner";
 
 import ProductCard from "../layouts/layout/ProductCard";
 import RentalDialog from "../layouts/layout/RentalDialog";
 
+import {
+  getProducts,
+  takeProduct,
+  returnTakenProduct,
+  rentProduct,
+  returnRentedProduct,
+} from "../../api/productsApi";
+
+function showApiError(err, fallback = "Something went wrong") {
+  if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
+  const status = err.response.status;
+  const detail = err?.response?.data?.detail ?? err?.response?.data?.message;
+  if (status === 401) return "Unauthorized (please login again)";
+  if (status === 403) return "Forbidden";
+  if (status === 422) return "Invalid request (check qty/days)";
+  if (status >= 500) return "Server error. Try again";
+  return (typeof detail === "string" && detail) || fallback;
+}
+
 export default function EmployeeProducts({ onRental, onTake, onReturn }) {
-  const [products] = useState(mockProducts);
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGender, setSelectedGender] = useState("all");
@@ -14,35 +35,65 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [minQuantity, setMinQuantity] = useState(0);
   const [maxQuantity, setMaxQuantity] = useState(100);
   const [showFilter, setShowFilter] = useState(false);
+
   const [rentalProduct, setRentalProduct] = useState(null);
 
-  const filteredProducts = products.filter((product) => {
-    if (
-      searchQuery &&
-      !product.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
+  const toastOpts = { position: "top-center" };
 
-    if (selectedCategory !== "all" && product.category !== selectedCategory)
-      return false;
+  const refreshProducts = async () => {
+    const data = await getProducts();
+    setProducts(data);
+  };
 
-    if (
-      selectedCategory === "clothing" &&
-      selectedGender !== "all" &&
-      product.gender !== selectedGender
-    )
-      return false;
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        await refreshProducts();
+      } catch (e) {
+        console.error(e);
+        toast.error(showApiError(e, "Failed to load products"), toastOpts);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-    if (selectedType !== "all" && product.type !== selectedType) return false;
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      if (
+        searchQuery &&
+        !product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+        return false;
 
-    if (
-      product.availableQuantity < minQuantity ||
-      product.availableQuantity > maxQuantity
-    )
-      return false;
+      if (selectedCategory !== "all" && product.category !== selectedCategory)
+        return false;
 
-    return true;
-  });
+      if (
+        selectedCategory === "clothing" &&
+        selectedGender !== "all" &&
+        product.gender !== selectedGender
+      )
+        return false;
+
+      if (selectedType !== "all" && product.type !== selectedType) return false;
+
+      const available = Number(product.availableQuantity ?? 0);
+      if (available < minQuantity || available > maxQuantity) return false;
+
+      return true;
+    });
+  }, [
+    products,
+    searchQuery,
+    selectedCategory,
+    selectedGender,
+    selectedType,
+    minQuantity,
+    maxQuantity,
+  ]);
 
   const getAvailableTypes = () => {
     if (selectedCategory === "all") return [];
@@ -65,12 +116,70 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     );
   };
 
-  const handleRental = (product) => setRentalProduct(product);
+  const handleRentalOpen = (product) => setRentalProduct(product);
 
-  const handleRentalConfirm = (days) => {
-    if (rentalProduct) {
-      onRental(rentalProduct.id, days);
+  // ✅ from RentalDialog: (days, qty)
+  const handleRentalConfirm = async (days, qty) => {
+    if (!rentalProduct) return;
+
+    try {
+      // אם App.jsx עדיין שולח callback – נכבד אותו (אבל נוסיף qty)
+      if (onRental) {
+        await onRental(rentalProduct.id, days, qty);
+      } else {
+        await rentProduct(rentalProduct.id, days, qty);
+        toast.success("Rented successfully", toastOpts);
+      }
+
       setRentalProduct(null);
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error(showApiError(e, "Rent failed"), toastOpts);
+    }
+  };
+
+  const handleTake = async (productId) => {
+    try {
+      if (onTake) {
+        await onTake(productId, 1);
+      } else {
+        await takeProduct(productId, 1);
+        toast.success("Taken successfully", toastOpts);
+      }
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error(showApiError(e, "Take failed"), toastOpts);
+    }
+  };
+
+  // אצלך prop נקרא onReturn, אבל בבאקנד יש שתי החזרות:
+  // return-taken ו return-rented. כאן נשתמש ב-return-taken לפעולת "Return".
+  const handleReturnTaken = async (productId) => {
+    try {
+      if (onReturn) {
+        await onReturn(productId, 1);
+      } else {
+        await returnTakenProduct(productId, 1);
+        toast.success("Returned successfully", toastOpts);
+      }
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error(showApiError(e, "Return failed"), toastOpts);
+    }
+  };
+
+  // אופציונלי (אם ב-ProductCard יש כפתור להחזרת השכרה)
+  const handleReturnRented = async (productId) => {
+    try {
+      await returnRentedProduct(productId, 1);
+      toast.success("Rental returned successfully", toastOpts);
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error(showApiError(e, "Return rented failed"), toastOpts);
     }
   };
 
@@ -171,7 +280,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         </div>
       </div>
 
-      {/* App.jsx already handles max-w + padding, so here we keep only vertical spacing */}
       <div className="py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Products</h2>
@@ -258,16 +366,20 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
           </div>
         )}
 
-        {filteredProducts.length > 0 ? (
+        {isLoading ? (
+          <div className="text-gray-500">Loading products...</div>
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 viewMode="employee"
-                onRental={() => handleRental(product)}
-                onTake={() => onTake(product.id)}
-                onReturn={() => onReturn(product.id)}
+                onRental={() => handleRentalOpen(product)}
+                onTake={() => handleTake(product.id)}
+                onReturn={() => handleReturnTaken(product.id)}
+                // אם יש לך כפתור נפרד להחזרת השכרה ב-ProductCard, נחבר אותו אחר כך
+                // onReturnRented={() => handleReturnRented(product.id)}
               />
             ))}
           </div>

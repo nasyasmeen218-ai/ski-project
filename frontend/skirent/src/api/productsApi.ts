@@ -5,7 +5,7 @@ export type Product = {
   name: string;
   category?: string; // clothing/equipment
   type?: string;
-  gender?: string;   // male/female (לבגדים)
+  gender?: string; // male/female (לבגדים)
   quantity: number;
   availableQuantity?: number;
   rentedQuantity?: number;
@@ -39,26 +39,26 @@ export async function deleteProduct(id: string): Promise<{ ok?: boolean; message
 }
 
 // --- Inventory / Rentals actions ---
-// ✅ POST /products/{id}/take
-export async function takeProduct(productId: string): Promise<any> {
-  const res = await api.post(`/products/${productId}/take`);
+// ✅ POST /products/{id}/take  { qty }
+export async function takeProduct(productId: string, qty: number = 1): Promise<any> {
+  const res = await api.post(`/products/${productId}/take`, { qty });
   return res.data;
 }
 
-// ✅ POST /products/{id}/return-taken
-export async function returnTakenProduct(productId: string): Promise<any> {
-  const res = await api.post(`/products/${productId}/return-taken`);
+// ✅ POST /products/{id}/return-taken  { qty }
+export async function returnTakenProduct(productId: string, qty: number = 1): Promise<any> {
+  const res = await api.post(`/products/${productId}/return-taken`, { qty });
   return res.data;
 }
 
-// ✅ POST /products/{id}/rent  { days }
-export async function rentProduct(productId: string, days: number): Promise<any> {
-  const res = await api.post(`/products/${productId}/rent`, { days });
+// ✅ POST /products/{id}/rent  { qty, days }
+export async function rentProduct(productId: string, days: number, qty: number = 1): Promise<any> {
+  const res = await api.post(`/products/${productId}/rent`, { qty, days });
   return res.data;
 }
 
-// ✅ POST /products/{id}/return-rented
-export async function returnRentedProduct(productId: string): Promise<any> {
-  const res = await api.post(`/products/${productId}/return-rented`);
+// ✅ POST /products/{id}/return-rented  { qty }
+export async function returnRentedProduct(productId: string, qty: number = 1): Promise<any> {
+  const res = await api.post(`/products/${productId}/return-rented`, { qty });
   return res.data;
 }

@@ -1,23 +1,33 @@
 import { api } from "./client";
 
-export type Rental = {
+export type RentalDto = {
   id: string;
-  product_id: string;
-  user_id: string;
-  status: "ACTIVE" | "RETURNED";
-  rented_at?: string;
-  returned_at?: string;
-  days?: number;
+  productId: string;
+  productName: string | null;
+  qty: number;
+  status: "ACTIVE" | "RETURNED" | string;
+  startDate: string;
+  endDate: string;
+  returnedAt: string | null;
+  createdAt: string;
+};
+
+export type AdminRentalDto = RentalDto & {
+  userId: string;
 };
 
 // ✅ GET /rentals/my
-export async function getMyRentals(): Promise<Rental[]> {
-  const res = await api.get<Rental[]>("/rentals/my");
+export async function getMyRentals(): Promise<RentalDto[]> {
+  const res = await api.get<RentalDto[]>("/rentals/my");
   return res.data;
 }
 
-// ✅ GET /rentals (Admin)
-export async function getAllRentals(): Promise<Rental[]> {
-  const res = await api.get<Rental[]>("/rentals");
+// ✅ GET /rentals (admin) with optional filters
+export async function getAllRentals(params?: {
+  status?: string;   // ACTIVE / RETURNED
+  userId?: string;
+  productId?: string;
+}): Promise<AdminRentalDto[]> {
+  const res = await api.get<AdminRentalDto[]>("/rentals", { params });
   return res.data;
 }
