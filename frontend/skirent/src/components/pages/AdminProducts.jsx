@@ -1,14 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Filter, Package2 } from "lucide-react";
+import { toast } from "sonner";
+
 import ProductCard from "../layouts/layout/ProductCard";
 import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 
+import {
+  getProducts,
+  deleteProduct as apiDeleteProduct,
+  updateProduct as apiUpdateProduct,
+} from "../../api/productsApi";
+
+
 export default function AdminProducts({
-  products = [], // ✅ prevents crash when products is undefined
+  // אפשר להשאיר callbacks אם יש לך הורה שמנהל state,
+  // אבל הקובץ הזה עובד גם לבד מול ה-API.
   onDelete,
-  onAddProduct,
   onEditProduct,
 }) {
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGender, setSelectedGender] = useState("all");
@@ -19,6 +31,23 @@ export default function AdminProducts({
 
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
+
+  // Load products from backend
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getProducts();
+        setProducts(data);
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to load products (check login/token)");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   // keep viewing product in sync with latest products list
   useEffect(() => {
@@ -84,10 +113,39 @@ export default function AdminProducts({
     );
   };
 
-  const handleEditSubmit = (productData) => {
+  const handleDelete = async (productId) => {
+    try {
+      // אם יש הורה שמטפל במחיקה – נכבד אותו
+      if (onDelete) {
+        await onDelete(productId);
+      } else {
+        await apiDeleteProduct(productId);
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+      }
+      toast.success("Product deleted");
+    } catch (e) {
+      console.error(e);
+      toast.error("Delete failed");
+    }
+  };
+
+  const handleEditSubmit = async (productData) => {
     if (!editingProduct) return;
-    onEditProduct?.(editingProduct.id, productData);
-    setEditingProduct(null);
+    try {
+      if (onEditProduct) {
+        await onEditProduct(editingProduct.id, productData);
+      } else {
+        const updated = await apiUpdateProduct(editingProduct.id, productData);
+        setProducts((prev) =>
+          prev.map((p) => (p.id === updated.id ? updated : p))
+        );
+      }
+      toast.success("Product updated");
+      setEditingProduct(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Edit failed");
+    }
   };
 
   return (
@@ -273,7 +331,9 @@ export default function AdminProducts({
           </div>
         )}
 
-        {filteredProducts.length > 0 ? (
+        {isLoading ? (
+          <div className="text-gray-500">Loading products...</div>
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
@@ -281,7 +341,7 @@ export default function AdminProducts({
                 product={product}
                 viewMode="admin"
                 onEdit={() => setEditingProduct(product)}
-                onDelete={() => onDelete?.(product.id)}
+                onDelete={() => handleDelete(product.id)}
                 onView={() => setViewingProduct(product)}
               />
             ))}
