@@ -190,12 +190,8 @@ function AppContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {currentView === "products" &&
           (user?.role === "employee" ? (
-            <EmployeeProducts
-              products={products}
-              onRental={handleRental}
-              onTake={handleTake}
-              onReturn={handleReturn}
-            />
+           <EmployeeProducts />
+
           ) : (
             <AdminProducts />
           ))}
