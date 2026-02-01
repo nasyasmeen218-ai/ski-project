@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { X, Package, Tag, Users, Hash, Info } from "lucide-react";
 
 export default function ProductFormDialog({ mode, product, onConfirm, onClose }) {
   const isAdd = mode === "add";
+  const isView = mode === "view";
 
   const clothingTypes = useMemo(
     () => ["Jackets", "Second Layer", "Thermal Wear", "Pants"],
@@ -174,6 +175,64 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     onConfirm(productData);
   };
 
+  // --- VIEW MODE UI ---
+  if (isView) {
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <div className="flex items-center gap-2 text-blue-600 font-bold uppercase tracking-wider text-xs">
+              <Info className="w-4 h-4" />
+              Product Details
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-xl transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600"><Package className="w-8 h-8" /></div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{formData.name}</h3>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">{formData.category}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 text-center">
+                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">Available</span>
+                <span className="text-2xl font-black text-blue-700">{formData.availableQuantity}</span>
+              </div>
+              <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 text-center">
+                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">Rented</span>
+                <span className="text-2xl font-black text-orange-700">{formData.rentedQuantity}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500"><Tag className="w-4 h-4" /> Type</div>
+                <div className="font-semibold text-gray-900">{formData.type}</div>
+              </div>
+              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500"><Users className="w-4 h-4" /> Gender</div>
+                <div className="font-semibold text-gray-900 capitalize">{formData.gender || "N/A"}</div>
+              </div>
+              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Total Stock</div>
+                <div className="font-semibold text-gray-900">{formData.quantity} Units</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-gray-50 flex justify-end">
+            <button onClick={onClose} className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm">Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ADD/EDIT MODE UI (הקוד המקורי שלך) ---
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
@@ -181,9 +240,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* ✅ smaller + scroll inside */}
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto">
-        {/* ✅ sticky header so X always visible */}
         <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100 flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
@@ -199,7 +256,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             className="w-10 h-10 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center"
             type="button"
             aria-label="Close"
-            title="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -356,7 +412,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             </button>
           </div>
 
-          {/* small spacer so last button isn't glued to bottom */}
           <div className="h-2" />
         </form>
       </div>

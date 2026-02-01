@@ -35,8 +35,12 @@ export default function AdminProducts({ addSignal = 0 }) {
 
   // --- REFRESH FUNCTION ---
   const refreshProducts = async () => {
-    const data = await getProducts();
-    setProducts(data);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // --- USE EFFECTS המקוריים ---
@@ -60,6 +64,7 @@ export default function AdminProducts({ addSignal = 0 }) {
     if (addSignal > 0) setAdding(true);
   }, [addSignal]);
 
+  // סנכרון המוצר הנצפה במידה והוא מתעדכן
   useEffect(() => {
     if (!viewingProduct) return;
     const latest = products.find((p) => p.id === viewingProduct.id);
@@ -159,8 +164,8 @@ export default function AdminProducts({ addSignal = 0 }) {
 
   // --- RENDER ---
   return (
-    <div className="relative min-h-screen flex flex-col">
-      {/* 1. התפריט העליון (Category Header) - נשאר לבן ונקי כדי לא להסתיר את ה-Logout */}
+    <div className="relative min-h-screen flex flex-col bg-white">
+      {/* 1. התפריט העליון (Category Header) */}
       <div className="bg-white border-b border-gray-200 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 py-4">
@@ -253,9 +258,8 @@ export default function AdminProducts({ addSignal = 0 }) {
         </div>
       </div>
 
-      {/* 2. אזור התוכן - הרקע מתחיל כאן */}
+      {/* 2. אזור התוכן */}
       <div className="relative flex-grow">
-        {/* תמונת רקע קבועה שמתחילה מתחת לטאבים */}
         <div 
           className="absolute inset-0 z-0 pointer-events-none opacity-20"
           style={{ 
@@ -399,6 +403,14 @@ export default function AdminProducts({ addSignal = 0 }) {
           product={editingProduct}
           onConfirm={handleEditSubmit}
           onClose={() => setEditingProduct(null)}
+        />
+      )}
+
+      {viewingProduct && (
+        <ProductFormDialog
+          mode="view"
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
         />
       )}
     </div>
