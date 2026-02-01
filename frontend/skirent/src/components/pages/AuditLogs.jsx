@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAuditLogs } from "../../api/auditLogsApi";
 import { Download, Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -25,29 +25,49 @@ export default function AuditLogs() {
     fetchLogs();
   }, []);
 
-  const filteredRecords = records.filter((record) => {
-    if (filterAction !== "all" && record.action !== filterAction) return false;
+  const filteredRecords = useMemo(() => {
+    return records.filter((record) => {
+      if (filterAction !== "all" && record.action !== filterAction) return false;
 
-    const qty = record.qty ?? 0;
-    if (filterAmount === "1" && qty !== 1) return false;
-    if (filterAmount === "2-5" && (qty < 2 || qty > 5)) return false;
-    if (filterAmount === "6+" && qty < 6) return false;
+      const qty = record.qty ?? 0;
+      if (filterAmount === "1" && qty !== 1) return false;
+      if (filterAmount === "2-5" && (qty < 2 || qty > 5)) return false;
+      if (filterAmount === "6+" && qty < 6) return false;
 
-    const pName = record.meta?.name || "";
-    const uName = record.actorUserName || record.actorUserId || "";
+      const pName = record.meta?.name || "";
+      const uName = record.actorUserName || record.actorUserId || "";
 
-    if (
-      searchQuery &&
-      !pName.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !uName.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
+      if (
+        searchQuery &&
+        !pName.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !uName.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [records, filterAction, filterAmount, searchQuery]);
 
-  // ✅ Export CSV (Excel + Hebrew friendly)
+  // ✅ Summary counts based on filtered records
+  const summary = useMemo(() => {
+    return filteredRecords.reduce(
+      (acc, r) => {
+        const a = (r.action || "").toUpperCase();
+        if (a === "RENT") acc.rent += 1;
+        else if (a === "TAKE") acc.take += 1;
+        else if (a === "PRODUCT_CREATE") acc.create += 1;
+        else if (a === "RETURN_RENTED" || a === "RETURN_TAKEN" || a === "RETURN") acc.return += 1;
+        else acc.other += 1;
+
+        acc.total += 1;
+        return acc;
+      },
+      { total: 0, rent: 0, return: 0, take: 0, create: 0, other: 0 }
+    );
+  }, [filteredRecords]);
+
+  // ✅ Export CSV (Excel + Hebrew friendly) - exports filtered records
   const exportCSV = () => {
     if (!filteredRecords.length) {
       toast.info("No data to export");
@@ -86,7 +106,7 @@ export default function AuditLogs() {
     toast.success("CSV exported");
   };
 
-  // ✅ Print / Save as PDF
+  // ✅ Print / Save as PDF - prints filtered records
   const exportPrintPDF = () => {
     if (!filteredRecords.length) {
       toast.info("No data to print");
@@ -114,6 +134,7 @@ export default function AuditLogs() {
             body { font-family: Arial, sans-serif; padding: 24px; }
             h1 { margin-bottom: 6px; }
             .sub { color: #555; margin-bottom: 18px; }
+            .stats { margin: 0 0 14px; color: #111; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background: #f3f4f6; }
@@ -122,6 +143,9 @@ export default function AuditLogs() {
         <body>
           <h1>Inventory Reports</h1>
           <p class="sub">Generated: ${new Date().toLocaleString()}</p>
+          <p class="stats">
+            Total: ${summary.total} | RENT: ${summary.rent} | RETURN: ${summary.return} | TAKE: ${summary.take} | CREATE: ${summary.create} | OTHER: ${summary.other}
+          </p>
           <table>
             <thead>
               <tr>
@@ -185,6 +209,34 @@ export default function AuditLogs() {
           </div>
         </div>
 
+        {/* ✅ Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">Total</div>
+            <div className="text-2xl font-bold">{summary.total}</div>
+          </div>
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">RENT</div>
+            <div className="text-2xl font-bold">{summary.rent}</div>
+          </div>
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">RETURN</div>
+            <div className="text-2xl font-bold">{summary.return}</div>
+          </div>
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">TAKE</div>
+            <div className="text-2xl font-bold">{summary.take}</div>
+          </div>
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">CREATE</div>
+            <div className="text-2xl font-bold">{summary.create}</div>
+          </div>
+          <div className="bg-white border rounded-lg p-3">
+            <div className="text-xs text-gray-500">OTHER</div>
+            <div className="text-2xl font-bold">{summary.other}</div>
+          </div>
+        </div>
+
         <div className="bg-white p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <input
             placeholder="Search product or user..."
@@ -236,12 +288,17 @@ export default function AuditLogs() {
                   <td className="p-3">{r.action}</td>
                   <td className="p-3">{r.qty}</td>
                   <td className="p-3">
-                    {r.createdAt
-                      ? new Date(r.createdAt).toLocaleString()
-                      : "-"}
+                    {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
                   </td>
                 </tr>
               ))}
+              {!filteredRecords.length && (
+                <tr>
+                  <td className="p-6 text-center text-gray-500" colSpan={5}>
+                    No records match the current filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
