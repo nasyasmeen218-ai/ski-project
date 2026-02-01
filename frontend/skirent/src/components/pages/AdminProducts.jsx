@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Filter, Package2 } from "lucide-react";
+import { Search, Filter, Package2, Snowflake } from "lucide-react";
 import { toast } from "sonner";
 
 import ProductCard from "../layouts/layout/ProductCard";
@@ -12,7 +12,10 @@ import {
   updateProduct as apiUpdateProduct,
 } from "../../api/productsApi";
 
+import mountainsBg from "../../assets/ski-mountains.png";
+
 export default function AdminProducts({ addSignal = 0 }) {
+  // --- STATES המקוריים ---
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,11 +33,13 @@ export default function AdminProducts({ addSignal = 0 }) {
 
   const toastOpts = { position: "top-center" };
 
+  // --- REFRESH FUNCTION ---
   const refreshProducts = async () => {
     const data = await getProducts();
     setProducts(data);
   };
 
+  // --- USE EFFECTS המקוריים ---
   useEffect(() => {
     const load = async () => {
       try {
@@ -62,6 +67,7 @@ export default function AdminProducts({ addSignal = 0 }) {
     else setViewingProduct(latest);
   }, [products, viewingProduct]);
 
+  // --- FILTERED PRODUCTS LOGIC ---
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -92,6 +98,7 @@ export default function AdminProducts({ addSignal = 0 }) {
     maxQuantity,
   ]);
 
+  // --- GET AVAILABLE TYPES FUNCTION ---
   const getAvailableTypes = () => {
     if (selectedCategory === "all") return [];
     return Array.from(
@@ -113,6 +120,7 @@ export default function AdminProducts({ addSignal = 0 }) {
     );
   };
 
+  // --- HANDLERS (DELETE, EDIT, ADD) ---
   const handleDelete = async (productId) => {
     try {
       await apiDeleteProduct(productId);
@@ -149,10 +157,11 @@ export default function AdminProducts({ addSignal = 0 }) {
     }
   };
 
+  // --- RENDER ---
   return (
-    <div>
-      {/* Category header */}
-      <div className="bg-white border-b border-gray-200">
+    <div className="relative min-h-screen flex flex-col">
+      {/* 1. התפריט העליון (Category Header) - נשאר לבן ונקי כדי לא להסתיר את ה-Logout */}
+      <div className="bg-white border-b border-gray-200 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 py-4">
             <button
@@ -163,7 +172,7 @@ export default function AdminProducts({ addSignal = 0 }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "all"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -179,7 +188,7 @@ export default function AdminProducts({ addSignal = 0 }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "clothing"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -195,7 +204,7 @@ export default function AdminProducts({ addSignal = 0 }) {
               }}
               className={`px-6 py-2 rounded-lg font-medium transition-all ${
                 selectedCategory === "equipment"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               type="button"
@@ -244,116 +253,138 @@ export default function AdminProducts({ addSignal = 0 }) {
         </div>
       </div>
 
-      <div className="py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Product Management</h2>
-          <p className="text-gray-600">Manage all products in the system</p>
-        </div>
+      {/* 2. אזור התוכן - הרקע מתחיל כאן */}
+      <div className="relative flex-grow">
+        {/* תמונת רקע קבועה שמתחילה מתחת לטאבים */}
+        <div 
+          className="absolute inset-0 z-0 pointer-events-none opacity-20"
+          style={{ 
+            backgroundImage: `url(${mountainsBg})`,
+            backgroundPosition: 'bottom center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: 'cover',
+            backgroundAttachment: 'fixed'
+          }}
+        ></div>
 
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => setShowFilter(!showFilter)}
-            className={`px-4 py-3 border rounded-lg transition-all ${
-              showFilter
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-            }`}
-            type="button"
-            aria-label="Toggle filters"
-            title="Filters"
-          >
-            <Filter className="w-5 h-5" />
-          </button>
-
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          </div>
-        </div>
-
-        {showFilter && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-            <h3 className="font-medium text-gray-900 mb-4">Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {selectedCategory !== "all" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Product Type
-                  </label>
-                  <select
-                    value={selectedType}
-                    onChange={(e) => setSelectedType(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Types</option>
-                    {getAvailableTypes().map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-3xl font-bold text-gray-900">Product Management</h2>
+                <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 text-xs font-bold animate-pulse">
+                  <Snowflake className="w-4 h-4" />
+                  <span>-4°C SKI RESORT</span>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Min Total Quantity
-                </label>
-                <input
-                  type="number"
-                  value={minQuantity}
-                  onChange={(e) => setMinQuantity(Number(e.target.value))}
-                  min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Max Total Quantity
-                </label>
-                <input
-                  type="number"
-                  value={maxQuantity}
-                  onChange={(e) => setMaxQuantity(Number(e.target.value))}
-                  min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <p className="text-gray-600">Manage all products in the system</p>
             </div>
           </div>
-        )}
 
-        {isLoading ? (
-          <div className="text-gray-500">Loading products...</div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                viewMode="admin"
-                onEdit={() => setEditingProduct(product)}
-                onDelete={() => handleDelete(product.id)}
-                onView={() => setViewingProduct(product)}
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => setShowFilter(!showFilter)}
+              className={`px-4 py-3 border rounded-lg transition-all ${
+                showFilter
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+              type="button"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/90"
               />
-            ))}
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500">Try adjusting your filters or search query</p>
-          </div>
-        )}
+
+          {showFilter && (
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
+              <h3 className="font-medium text-gray-900 mb-4 tracking-wide uppercase text-sm">Advanced Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {selectedCategory !== "all" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Type
+                    </label>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => setSelectedType(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="all">All Types</option>
+                      {getAvailableTypes().map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Min Total Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(Number(e.target.value))}
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Total Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={maxQuantity}
+                    onChange={(e) => setMaxQuantity(Number(e.target.value))}
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="text-gray-500 text-center py-20 font-medium">Loading products...</div>
+          ) : filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  viewMode="admin"
+                  onEdit={() => setEditingProduct(product)}
+                  onDelete={() => handleDelete(product.id)}
+                  onView={() => setViewingProduct(product)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white/50 rounded-xl border-2 border-dashed border-gray-200">
+              <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+              <p className="text-gray-500">Try adjusting your filters or search query</p>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* --- Dialogs --- */}
       {adding && (
         <ProductFormDialog
           mode="add"
