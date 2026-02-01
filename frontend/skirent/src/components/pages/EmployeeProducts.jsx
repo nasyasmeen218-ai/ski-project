@@ -118,7 +118,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const handleRentalOpen = (product) => setRentalProduct(product);
 
-  // ✅ תיקון משימה: שימוש ב-days ו-qty ורענון מוצרים
   const handleRentalConfirm = async (days, qty) => {
     if (!rentalProduct) return;
 
@@ -138,7 +137,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // ✅ תיקון משימה: שליחת qty=1 ורענון מוצרים
   const handleTake = async (productId) => {
     try {
       if (onTake) {
@@ -154,7 +152,31 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // ✅ תיקון משימה: שליחת qty=1 ורענון מוצרים
+  // פונקציית החזרה מאוחדת שבודקת מה להחזיר
+  const handleUniversalReturn = async (product) => {
+    try {
+      // אם יש כמות מושכרת, נחזיר קודם את השכירות
+      if (product.rentedQuantity > 0) {
+        await returnRentedProduct(product.id, 1);
+        toast.success("Rental returned successfully", toastOpts);
+      } 
+      // אחרת, אם המוצר "נלקח" (בשימוש), נחזיר אותו למלאי
+      else {
+        if (onReturn) {
+          await onReturn(product.id, 1);
+        } else {
+          await returnTakenProduct(product.id, 1);
+          toast.success("Returned to stock successfully", toastOpts);
+        }
+      }
+      await refreshProducts();
+    } catch (e) {
+      console.error(e);
+      toast.error(showApiError(e, "Return failed"), toastOpts);
+    }
+  };
+
+  // שומר על הפונקציות המקוריות לבקשתך
   const handleReturnTaken = async (productId) => {
     try {
       if (onReturn) {
@@ -277,25 +299,24 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         </div>
       </div>
 
-      {/* 🏔️ כאן הוספתי את הרקע, כל השאר נשאר בתוך הדיב הזה */}
       <div 
-        className="relative bg-cover bg-center py-12" 
+        className="relative bg-cover bg-center py-16 border-b" 
         style={{ backgroundImage: "url('/src/assets/ski-mountains.png')" }}
       >
         <div className="absolute inset-0 bg-white/40" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Products</h2>
-            <p className="text-gray-600">Browse and manage inventory</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-2">Products</h2>
+            <p className="text-gray-700 text-lg font-medium">Browse and manage inventory</p>
           </div>
 
           <div className="flex gap-4">
             <button
               onClick={() => setShowFilter(!showFilter)}
-              className={`px-4 py-3 border rounded-lg transition-all ${
+              className={`px-4 py-3 border rounded-lg transition-all bg-white shadow-sm ${
                 showFilter
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
               }`}
               type="button"
             >
@@ -308,7 +329,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                className="w-full h-12 px-4 py-3 pl-12 border border-transparent rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               />
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
@@ -381,7 +402,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                 viewMode="employee"
                 onRental={() => handleRentalOpen(product)}
                 onTake={() => handleTake(product.id)}
-                onReturn={() => handleReturnTaken(product.id)}
+                onReturn={() => handleUniversalReturn(product)}
+                onReturnRented={() => handleReturnRented(product.id)}
               />
             ))}
           </div>
