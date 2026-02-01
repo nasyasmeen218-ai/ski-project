@@ -41,8 +41,12 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const toastOpts = { position: "top-center" };
 
   const refreshProducts = async () => {
-    const data = await getProducts();
-    setProducts(data);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (e) {
+      console.error("Fetch error:", e);
+    }
   };
 
   useEffect(() => {
@@ -62,21 +66,28 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      if (
-        searchQuery &&
-        !product.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-        return false;
+      // ניקוי נתונים מה-DB למניעת בעיות התאמה
+      const pCat = (product.category || "").trim().toLowerCase();
+      const pGender = (product.gender || "").trim().toLowerCase();
+      const pName = (product.name || "").toLowerCase();
 
-      if (selectedCategory !== "all" && product.category !== selectedCategory)
+      if (searchQuery && !pName.includes(searchQuery.toLowerCase())) {
         return false;
+      }
 
+      // סינון קטגוריה גמיש
+      if (selectedCategory !== "all" && pCat !== selectedCategory.toLowerCase()) {
+        return false;
+      }
+
+      // סינון מגדר גמיש
       if (
         selectedCategory === "clothing" &&
         selectedGender !== "all" &&
-        product.gender !== selectedGender
-      )
+        pGender !== selectedGender.toLowerCase()
+      ) {
         return false;
+      }
 
       if (selectedType !== "all" && product.type !== selectedType) return false;
 
@@ -101,13 +112,17 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
       new Set(
         products
           .filter((p) => {
-            if (p.category !== selectedCategory) return false;
+            const pCat = (p.category || "").trim().toLowerCase();
+            const pGender = (p.gender || "").trim().toLowerCase();
+            
+            if (pCat !== selectedCategory.toLowerCase()) return false;
             if (
               selectedCategory === "clothing" &&
               selectedGender !== "all" &&
-              p.gender !== selectedGender
-            )
+              pGender !== selectedGender.toLowerCase()
+            ) {
               return false;
+            }
             return true;
           })
           .map((p) => p.type)
@@ -152,15 +167,12 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // פונקציית החזרה מאוחדת שבודקת מה להחזיר
   const handleUniversalReturn = async (product) => {
     try {
-      // אם יש כמות מושכרת, נחזיר קודם את השכירות
-      if (product.rentedQuantity > 0) {
+      if (Number(product.rentedQuantity) > 0) {
         await returnRentedProduct(product.id, 1);
         toast.success("Rental returned successfully", toastOpts);
       } 
-      // אחרת, אם המוצר "נלקח" (בשימוש), נחזיר אותו למלאי
       else {
         if (onReturn) {
           await onReturn(product.id, 1);
@@ -176,7 +188,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
-  // שומר על הפונקציות המקוריות לבקשתך
   const handleReturnTaken = async (productId) => {
     try {
       if (onReturn) {
@@ -392,7 +403,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         )}
 
         {isLoading ? (
-          <div className="text-gray-500 py-10 text-center">Loading products...</div>
+          <div className="text-gray-500 py-10 text-center font-bold">Loading products...</div>
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
