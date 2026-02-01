@@ -182,7 +182,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   };
 
   return (
-    <div>
+    <div className="bg-gray-50 min-h-screen">
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 py-4">
@@ -277,37 +277,46 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Products</h2>
-          <p className="text-gray-600">Browse and manage inventory</p>
-        </div>
+      {/* 🏔️ כאן הוספתי את הרקע, כל השאר נשאר בתוך הדיב הזה */}
+      <div 
+        className="relative bg-cover bg-center py-12" 
+        style={{ backgroundImage: "url('/src/assets/ski-mountains.png')" }}
+      >
+        <div className="absolute inset-0 bg-white/40" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Products</h2>
+            <p className="text-gray-600">Browse and manage inventory</p>
+          </div>
 
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => setShowFilter(!showFilter)}
-            className={`px-4 py-3 border rounded-lg transition-all ${
-              showFilter
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-            }`}
-            type="button"
-          >
-            <Filter className="w-5 h-5" />
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setShowFilter(!showFilter)}
+              className={`px-4 py-3 border rounded-lg transition-all ${
+                showFilter
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+              type="button"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
 
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {showFilter && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
             <h3 className="font-medium text-gray-900 mb-4">Filters</h3>
