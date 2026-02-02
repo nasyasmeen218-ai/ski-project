@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { toast, Toaster } from "sonner";
 
@@ -8,6 +8,7 @@ import Register from "./components/pages/Register";
 import EmployeeProducts from "./components/pages/EmployeeProducts";
 import AdminProducts from "./components/pages/AdminProducts";
 import AuditLogs from "./components/pages/AuditLogs";
+import AdminEmployees from "./components/pages/AdminEmployees";
 
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
@@ -22,6 +23,13 @@ function AppContent() {
 
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
   const isEmployee = useMemo(() => user?.role === "employee", [user]);
+
+  // ✅ אם עובד מנסה להגיע לטאב של admin, נחזיר אותו ל-products
+  useEffect(() => {
+    if (!isAdmin && (currentView === "audit" || currentView === "employees")) {
+      setCurrentView("products");
+    }
+  }, [isAdmin, currentView]);
 
   if (isLoadingUser) {
     return (
@@ -73,6 +81,9 @@ function AppContent() {
       )}
 
       {currentView === "audit" && isAdmin && <AuditLogs />}
+
+      {/* ✅ NEW: Employees Management */}
+      {currentView === "employees" && isAdmin && <AdminEmployees />}
     </DashboardLayout>
   );
 }

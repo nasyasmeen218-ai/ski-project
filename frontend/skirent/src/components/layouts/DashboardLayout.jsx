@@ -14,13 +14,6 @@ export default function DashboardLayout({
   children,
   onLogout,
   onProductCreated,
-}: {
-  user: any;
-  currentView: string;
-  setCurrentView: (v: string) => void;
-  children: React.ReactNode;
-  onLogout: () => void;
-  onProductCreated?: () => void;
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
 
@@ -33,7 +26,7 @@ export default function DashboardLayout({
     setShowAddDialog(true);
   };
 
-  const handleCreateProduct = async (productData: any) => {
+  const handleCreateProduct = async (productData) => {
     try {
       setSaving(true);
 
@@ -45,7 +38,7 @@ export default function DashboardLayout({
         quantity: Number(productData.quantity ?? 0),
         availableQuantity: Number(productData.availableQuantity ?? 0),
         rentedQuantity: Number(productData.rentedQuantity ?? 0),
-        imageurl: productData.imageurl || "", // ✅ חדש
+        imageurl: productData.imageurl || "",
       };
 
       await createProduct(payload);
@@ -54,7 +47,7 @@ export default function DashboardLayout({
       setShowAddDialog(false);
       setCurrentView("products");
       onProductCreated?.();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
 
       const status = e?.response?.status;
@@ -104,6 +97,21 @@ export default function DashboardLayout({
                 type="button"
               >
                 Inventory Reports
+              </button>
+            )}
+
+            {/* ✅ ניהול עובדים */}
+            {isAdmin && (
+              <button
+                onClick={() => setCurrentView("employees")}
+                className={`text-sm font-medium transition-all pb-4 ${
+                  currentView === "employees"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                type="button"
+              >
+                Employees
               </button>
             )}
           </div>
