@@ -1,48 +1,56 @@
 import { X, Clock } from "lucide-react";
-import { mockRentalRecords } from "../../../types/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { getAuditLogs } from "../../../api/auditLogsApi";
 
 export default function ActivityDrawer({ onClose }) {
-  const [records] = useState(mockRentalRecords);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        setLoading(true);
+        const data = await getAuditLogs();
+        setRecords((data || []).slice(0, 12)); // 12 אחרונים
+      } catch (e) {
+        toast.error("Failed to load recent activities");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, []);
 
   const getActionColor = (action) => {
-    switch (action) {
-      case "rental":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "take":
-        return "bg-orange-100 text-orange-700 border-orange-200";
-      case "return":
-        return "bg-green-100 text-green-700 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
-    }
+    const a = (action || "").toUpperCase();
+    if (a === "RENT") return "bg-blue-100 text-blue-700 border-blue-200";
+    if (a === "TAKE") return "bg-orange-100 text-orange-700 border-orange-200";
+    if (a.startsWith("RETURN")) return "bg-green-100 text-green-700 border-green-200";
+    return "bg-gray-100 text-gray-700 border-gray-200";
   };
 
-  const getActionLabel = (action) => {
-    switch (action) {
-      case "rental":
-        return "Rental";
-      case "take":
-        return "Take";
-      case "return":
-        return "Return";
-      default:
-        return action;
-    }
+  const label = (action) => {
+    const a = (action || "").toUpperCase();
+    if (a === "RENT") return "Rental";
+    if (a === "TAKE") return "Take";
+    if (a.startsWith("RETURN")) return "Return";
+    if (a === "PRODUCT_CREATE") return "Create";
+    return a || "Action";
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
+  const formatDate = (d) => {
+    if (!d) return "-";
+    return new Date(d).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
   };
 
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
+  const formatTime = (d) => {
+    if (!d) return "-";
+    return new Date(d).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -67,43 +75,37 @@ export default function ActivityDrawer({ onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-          {records.map((record) => (
-            <div
-              key={record.id}
-              className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all border border-gray-200"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${getActionColor(
-                    record.action
-                  )}`}
-                >
-                  {getActionLabel(record.action)}
-                </span>
-                <div className="text-right text-xs text-gray-500">
-                  <div>{formatTime(record.timestamp)}</div>
-                  <div>{formatDate(record.timestamp)}</div>
+          {loading && <div className="text-center text-gray-500 py-10">Loading...</div>}
+
+          {!loading &&
+            records.map((r) => (
+              <div
+                key={r.id}
+                className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all border border-gray-200"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border ${getActionColor(r.action)}`}>
+                    {label(r.action)}
+                  </span>
+                  <div className="text-right text-xs text-gray-500">
+                    <div>{formatTime(r.createdAt)}</div>
+                    <div>{formatDate(r.createdAt)}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-medium text-gray-900">{r.meta?.name || "-"}</h4>
+                  <p className="text-sm text-gray-600">
+                    {r.actorUserName || r.actorUserId} • Qty: {r.qty ?? 0}
+                  </p>
+                  {r.meta?.days && (
+                    <p className="text-sm text-blue-600">Duration: {r.meta.days} days</p>
+                  )}
                 </div>
               </div>
+            ))}
 
-              <div className="space-y-1">
-                <h4 className="font-medium text-gray-900">{record.productName}</h4>
-                <p className="text-sm text-gray-600">
-                  {record.userName} • Qty: {record.quantity}
-                </p>
-                {record.rentalDays && (
-                  <p className="text-sm text-blue-600">
-                    Duration: {record.rentalDays} days
-                  </p>
-                )}
-                {record.endDate && (
-                  <p className="text-xs text-gray-500">Until: {formatDate(record.endDate)}</p>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {records.length === 0 && (
+          {!loading && records.length === 0 && (
             <div className="text-center py-12">
               <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No activities to display</p>
