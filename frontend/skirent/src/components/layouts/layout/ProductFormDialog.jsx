@@ -10,7 +10,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
   const equipmentTypes = useMemo(
-    () => ["Skis", "Goggles", "Helmets", "Gloves", "Socks", "Boots"],
+    () => ["Skis", "Goggles", "Helmets", "Gloves", "Socks", "Boots", "Snowboard"],
     []
   );
 
