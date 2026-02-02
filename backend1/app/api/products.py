@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app.socket_manager import sio # ✅ ייבוא הסוקט לניהול זמן אמת
+
 from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.product import Product
@@ -27,12 +29,10 @@ def to_product_out(p: Product) -> dict:
         "type": p.type,
         "quantity": p.quantity,
         "availableQuantity": p.available_quantity,
-        "rentedQuantity": p.rented_quantity,
-        "imageurl": p.imageurl,  # שדה התמונה החדש
+        "rented_quantity": p.rented_quantity, # תיקון קטן לשם השדה אם צריך
+        "imageurl": p.imageurl,
     }
 
-
-# -------------------- Products CRUD --------------------
 
 @router.get("")
 def list_products(
@@ -44,7 +44,7 @@ def list_products(
 
 
 @router.post("")
-def create_product(
+async def create_product(
     data: ProductCreate,
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
@@ -65,7 +65,7 @@ def create_product(
         quantity=data.quantity,
         available_quantity=data.availableQuantity,
         rented_quantity=data.rentedQuantity,
-        imageurl=data.imageurl, # שמירה של ה-URL ביצירה
+        imageurl=data.imageurl,
     )
 
     db.add(product)
@@ -85,11 +85,14 @@ def create_product(
         meta={"name": product.name, "category": product.category, "type": product.type},
     )
 
-    return to_product_out(product)
+    product_data = to_product_out(product)
+    # ✅ עדכון האדמין בזמן אמת
+    await sio.emit('product_updated', product_data)
+    return product_data
 
 
 @router.put("/{product_id}")
-def update_product(
+async def update_product(
     product_id: str,
     payload: ProductUpdate,
     admin=Depends(require_admin),
@@ -114,7 +117,7 @@ def update_product(
         product.gender = payload.gender
     if payload.type is not None:
         product.type = payload.type
-    if payload.imageurl is not None: # עדכון ה-URL בעריכה
+    if payload.imageurl is not None:
         product.imageurl = payload.imageurl
 
     new_quantity = product.quantity if payload.quantity is None else payload.quantity
@@ -130,11 +133,15 @@ def update_product(
 
     db.commit()
     db.refresh(product)
-    return to_product_out(product)
+
+    product_data = to_product_out(product)
+    # ✅ עדכון האדמין בזמן אמת
+    await sio.emit('product_updated', product_data)
+    return product_data
 
 
 @router.delete("/{product_id}")
-def delete_product(
+async def delete_product(
     product_id: str,
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
@@ -153,10 +160,12 @@ def delete_product(
 
     db.delete(product)
     db.commit()
+
+    # ✅ הודעה לאדמין להסיר את השורה מהטבלה
+    await sio.emit('product_updated', {"id": product_id, "action": "deleted"})
     return {"message": "deleted"}
 
 
-# -------------------- Inventory Actions --------------------
 
 class QtyRequest(BaseModel):
     qty: int = Field(default=1, ge=1, description="How many units")
@@ -168,7 +177,7 @@ class RentRequest(BaseModel):
 
 
 @router.post("/{product_id}/take")
-def take_product(
+async def take_product(
     product_id: str,
     body: QtyRequest,
     user=Depends(get_current_user),
@@ -195,11 +204,14 @@ def take_product(
         meta={"name": product.name},
     )
 
-    return to_product_out(product)
+    product_data = to_product_out(product)
+    # ✅ עדכון סוקט
+    await sio.emit('product_updated', product_data)
+    return product_data
 
 
 @router.post("/{product_id}/return-taken")
-def return_taken_product(
+async def return_taken_product(
     product_id: str,
     body: QtyRequest,
     user=Depends(get_current_user),
@@ -227,11 +239,14 @@ def return_taken_product(
         meta={"name": product.name},
     )
 
-    return to_product_out(product)
+    product_data = to_product_out(product)
+    # ✅ עדכון סוקט
+    await sio.emit('product_updated', product_data)
+    return product_data
 
 
 @router.post("/{product_id}/rent")
-def rent_product(
+async def rent_product(
     product_id: str,
     body: RentRequest,
     user=Depends(get_current_user),
@@ -272,11 +287,14 @@ def rent_product(
         meta={"name": product.name, "days": body.days, "rentalId": str(rental.id)},
     )
 
-    return to_product_out(product)
+    product_data = to_product_out(product)
+    # ✅ עדכון סוקט
+    await sio.emit('product_updated', product_data)
+    return product_data
 
 
 @router.post("/{product_id}/return-rented")
-def return_rented_product(
+async def return_rented_product(
     product_id: str,
     body: QtyRequest,
     user=Depends(get_current_user),
@@ -324,4 +342,7 @@ def return_rented_product(
         meta={"name": product.name, "rentalId": str(rental.id)},
     )
 
-    return to_product_out(product)
+    product_data = to_product_out(product)
+    # ✅ עדכון סוקט
+    await sio.emit('product_updated', product_data)
+    return product_data

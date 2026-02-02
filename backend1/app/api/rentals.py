@@ -2,13 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 
-
-from app.core.security import get_current_user
+from app.socket_manager import sio # ✅ ייבוא הסוקט (מוכן לשימוש עתידי)
+from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.rental import Rental
 from app.models.product import Product
-from app.core.security import get_current_user, require_admin
-
 
 router = APIRouter()
 
@@ -51,6 +49,8 @@ def my_rentals(
         }
         for r in rentals
     ]
+
+
 @router.get("")
 def list_rentals(
     status: str | None = None,      # ACTIVE / RETURNED
@@ -90,4 +90,3 @@ def list_rentals(
         }
         for r in rentals
     ]
-

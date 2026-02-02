@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import socket from "../../socket"; 
 import ProductCard from "../layouts/layout/ProductCard";
 import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 
@@ -41,9 +42,25 @@ export default function AdminProducts({ refreshSignal = 0 }) {
   const toastOpts = { position: "top-center" };
 
   const refreshProducts = async () => {
-    const data = await getProducts();
-    setProducts(data);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (e) {
+      console.error("Socket refresh failed:", e);
+    }
   };
+
+  // ✅ האזנה לסוקט - עדכון בזמן אמת
+  useEffect(() => {
+    socket.on("product_updated", (data) => {
+      console.log("Real-time update received:", data);
+      refreshProducts();
+    });
+
+    return () => {
+      socket.off("product_updated");
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
