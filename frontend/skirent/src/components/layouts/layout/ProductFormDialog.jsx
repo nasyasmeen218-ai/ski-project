@@ -14,7 +14,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
 
-<<<<<<< HEAD
   const categoryOptions = useMemo(
     () => [
       { value: "clothing", label: "Clothing" },
@@ -24,9 +23,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
 
-=======
-  // --- STATE הכולל את imageurl ---
->>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
   const [formData, setFormData] = useState({
     name: product?.name || "",
     category: product?.category || "clothing",
@@ -35,21 +31,21 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     quantity: Number(product?.quantity ?? 0),
     availableQuantity: Number(product?.availableQuantity ?? 0),
     rentedQuantity: Number(product?.rentedQuantity ?? 0),
-    imageurl: product?.imageurl || "", 
+    imageurl: product?.imageurl || "",
   });
 
   const [customCategory, setCustomCategory] = useState("");
   const [customType, setCustomType] = useState("");
-
   const [error, setError] = useState("");
 
   // --- סינכרון הנתונים כשהמוצר משתנה ---
   useEffect(() => {
     const initialCategory = product?.category || "clothing";
+    const isKnown = initialCategory === "clothing" || initialCategory === "equipment";
 
     setFormData({
       name: product?.name || "",
-      category: initialCategory,
+      category: isKnown ? initialCategory : "__other__",
       gender: product?.gender || "male",
       type: product?.type || "",
       quantity: Number(product?.quantity ?? 0),
@@ -58,15 +54,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
       imageurl: product?.imageurl || "",
     });
 
-    const isKnown =
-      initialCategory === "clothing" || initialCategory === "equipment";
     setCustomCategory(isKnown ? "" : initialCategory);
-
-    setCustomType("");
+    setCustomType(isKnown ? "" : (product?.type || ""));
     setError("");
   }, [product, mode]);
 
-  // --- פונקציית העזר המקורית שלך ---
+  // --- שמירה על הלוגיקה המקורית: ב-Add mode available=total, rented=0 ---
   useEffect(() => {
     if (!isAdd) return;
 
@@ -85,16 +78,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-  // --- HANDLER המקורי שלך (כולל כל חישובי הכמויות) ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setError("");
 
-    if (
-      name === "quantity" ||
-      name === "availableQuantity" ||
-      name === "rentedQuantity"
-    ) {
+    // quantities
+    if (name === "quantity" || name === "availableQuantity" || name === "rentedQuantity") {
       const num = Number(value);
 
       setFormData((prev) => {
@@ -118,12 +107,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             a = Math.max(0, a - overflow);
           }
 
-          return {
-            ...prev,
-            quantity: q,
-            availableQuantity: a,
-            rentedQuantity: r,
-          };
+          return { ...prev, quantity: q, availableQuantity: a, rentedQuantity: r };
         }
 
         if (isAdd) return prev;
@@ -134,10 +118,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           let a = clamp(num, 0, q);
           let r = clamp(Number(prev.rentedQuantity || 0), 0, q);
 
-          if (a + r > q) {
-            r = Math.max(0, q - a);
-          }
-
+          if (a + r > q) r = Math.max(0, q - a);
           return { ...prev, availableQuantity: a, rentedQuantity: r };
         }
 
@@ -145,10 +126,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           let r = clamp(num, 0, q);
           let a = clamp(Number(prev.availableQuantity || 0), 0, q);
 
-          if (a + r > q) {
-            a = Math.max(0, q - r);
-          }
-
+          if (a + r > q) a = Math.max(0, q - r);
           return { ...prev, availableQuantity: a, rentedQuantity: r };
         }
 
@@ -161,54 +139,40 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     setFormData((prev) => {
       if (name === "category") {
         if (value === "__other__") {
-          return {
-            ...prev,
-            category: "__other__",
-            type: "",
-          };
+          setCustomCategory("");
+          setCustomType("");
+          return { ...prev, category: "__other__", type: "" };
         }
 
-        const nextCategory = value;
+        // normal category
         setCustomCategory("");
         setCustomType("");
-
         return {
           ...prev,
-          category: nextCategory,
+          category: value,
           type: "",
-          gender:
-            nextCategory === "clothing"
-              ? prev.gender || "male"
-              : prev.gender,
+          gender: value === "clothing" ? prev.gender || "male" : prev.gender,
         };
-      }
-
-      if (name === "type") {
-        return { ...prev, type: value };
       }
 
       return { ...prev, [name]: value };
     });
   };
 
-  // --- VALIDATION המקורי שלך ---
   const validate = () => {
     if (!formData.name.trim()) return "Product name is required";
 
     const finalCategory =
-      formData.category === "__other__"
-        ? customCategory.trim()
-        : formData.category;
-
+      formData.category === "__other__" ? customCategory.trim() : formData.category;
     if (!finalCategory) return "Category is required";
 
     const finalType =
       formData.category === "__other__" ? customType.trim() : formData.type;
-
     if (!finalType) return "Please select / enter a product type";
 
-    if (Number.isNaN(formData.quantity) || formData.quantity < 0)
+    if (Number.isNaN(formData.quantity) || formData.quantity < 0) {
       return "Quantity must be 0 or more";
+    }
 
     if (!isAdd) {
       const q = Number(formData.quantity || 0);
@@ -234,9 +198,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     }
 
     const finalCategory =
-      formData.category === "__other__"
-        ? customCategory.trim()
-        : formData.category;
+      formData.category === "__other__" ? customCategory.trim() : formData.category;
 
     const finalType =
       formData.category === "__other__" ? customType.trim() : formData.type;
@@ -251,13 +213,13 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         ? Number(formData.quantity || 0)
         : Number(formData.availableQuantity || 0),
       rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
-      imageurl: formData.imageurl, // <--- הוספת השדה לשליחה
+      imageurl: formData.imageurl || "",
     };
 
     onConfirm(productData);
   };
 
-  // --- VIEW MODE UI (כולל תצוגת תמונה) ---
+  // --- VIEW MODE UI ---
   if (isView) {
     return (
       <div
@@ -270,20 +232,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
               <Info className="w-4 h-4" />
               Product Details
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-200 rounded-xl transition-colors"
-            >
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-xl transition-colors">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
           <div className="p-6 space-y-6">
-<<<<<<< HEAD
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600">
-                <Package className="w-8 h-8" />
-=======
             <div className="flex items-center gap-4 border-b border-gray-50 pb-6">
               <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
                 {formData.imageurl ? (
@@ -291,70 +245,44 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
                 ) : (
                   <Package className="w-8 h-8 text-blue-400" />
                 )}
->>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  {formData.name}
-                </h3>
+                <h3 className="text-xl font-bold text-gray-900">{formData.name}</h3>
                 <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">
-                  {formData.category}
+                  {formData.category === "__other__" ? (customCategory || "other") : formData.category}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">
-                  Available
-                </span>
-                <span className="text-2xl font-black text-blue-700">
-                  {formData.availableQuantity}
-                </span>
+                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">Available</span>
+                <span className="text-2xl font-black text-blue-700">{formData.availableQuantity}</span>
               </div>
               <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">
-                  Rented
-                </span>
-                <span className="text-2xl font-black text-orange-700">
-                  {formData.rentedQuantity}
-                </span>
+                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">Rented</span>
+                <span className="text-2xl font-black text-orange-700">{formData.rentedQuantity}</span>
               </div>
             </div>
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Tag className="w-4 h-4" /> Type
-                </div>
-                <div className="font-semibold text-gray-900">
-                  {formData.type}
-                </div>
+                <div className="flex items-center gap-2 text-gray-500"><Tag className="w-4 h-4" /> Type</div>
+                <div className="font-semibold text-gray-900">{formData.type}</div>
               </div>
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Users className="w-4 h-4" /> Gender
-                </div>
-                <div className="font-semibold text-gray-900 capitalize">
-                  {formData.gender || "N/A"}
-                </div>
+                <div className="flex items-center gap-2 text-gray-500"><Users className="w-4 h-4" /> Gender</div>
+                <div className="font-semibold text-gray-900 capitalize">{formData.gender || "N/A"}</div>
               </div>
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <Hash className="w-4 h-4" /> Total Stock
-                </div>
-                <div className="font-semibold text-gray-900">
-                  {formData.quantity} Units
-                </div>
+                <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Total Stock</div>
+                <div className="font-semibold text-gray-900">{formData.quantity} Units</div>
               </div>
             </div>
           </div>
 
           <div className="p-4 bg-gray-50 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm"
-            >
+            <button onClick={onClose} className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm">
               Close
             </button>
           </div>
@@ -378,9 +306,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
               {isAdd ? "Add new product" : "Edit product"}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isAdd
-                ? "Create a new product in the inventory"
-                : "Update product details and quantities"}
+              {isAdd ? "Create a new product in the inventory" : "Update product details and quantities"}
             </p>
           </div>
 
@@ -394,8 +320,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          
-          {/* הוספת שדה תמונה בטופס */}
+          {/* Image URL */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Product Image URL
@@ -414,7 +339,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
               </div>
               <div className="w-12 h-12 rounded-xl border bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
                 {formData.imageurl ? (
-                  <img src={formData.imageurl} className="w-full h-full object-cover" />
+                  <img src={formData.imageurl} alt="preview" className="w-full h-full object-cover" />
                 ) : (
                   <ImageIcon className="w-5 h-5 text-gray-300" />
                 )}
@@ -422,6 +347,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             </div>
           </div>
 
+          {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Name <span className="text-rose-600">*</span>
@@ -437,6 +363,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             />
           </div>
 
+          {/* Category + Gender */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -491,6 +418,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
+          {/* Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Type <span className="text-rose-600">*</span>
@@ -526,6 +454,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
+          {/* Quantities */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -577,19 +506,16 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
-<<<<<<< HEAD
           {isAdd && (
             <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
               In <span className="font-medium">Add</span> mode,{" "}
-              <span className="font-medium">Available</span> will automatically
-              equal <span className="font-medium">Total</span>, and{" "}
+              <span className="font-medium">Available</span> will automatically equal{" "}
+              <span className="font-medium">Total</span>, and{" "}
               <span className="font-medium">Rented</span> will be{" "}
               <span className="font-medium">0</span>.
             </div>
           )}
 
-=======
->>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm">
               {error}
