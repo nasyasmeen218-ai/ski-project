@@ -1,490 +1,427 @@
 import { useEffect, useMemo, useState } from "react";
-import { X, Package, Tag, Users, Hash, Info } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Package2,
+  Snowflake,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { toast } from "sonner";
 
-export default function ProductFormDialog({ mode, product, onConfirm, onClose }) {
-  const isAdd = mode === "add";
-  const isView = mode === "view";
+import ProductCard from "../layouts/layout/ProductCard";
+import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 
-  const clothingTypes = useMemo(
-    () => ["Jackets", "Second Layer", "Thermal Wear", "Pants"],
-    []
-  );
-  const equipmentTypes = useMemo(
-    () => ["Skis", "Goggles", "Helmets", "Gloves", "Socks", "Boots"],
-    []
-  );
+import {
+  getProducts,
+  deleteProduct as apiDeleteProduct,
+  updateProduct as apiUpdateProduct,
+} from "../../api/productsApi";
 
-  const categoryOptions = useMemo(
-    () => [
-      { value: "clothing", label: "Clothing" },
-      { value: "equipment", label: "Equipment" },
-      { value: "__other__", label: "Other / New category" },
-    ],
-    []
-  );
+import mountainsBg from "../../assets/ski-mountains.png";
 
-  const [formData, setFormData] = useState({
-    name: product?.name || "",
-    category: product?.category || "clothing",
-    gender: product?.gender || "male",
-    type: product?.type || "",
-    quantity: Number(product?.quantity ?? 0),
-    availableQuantity: Number(product?.availableQuantity ?? 0),
-    rentedQuantity: Number(product?.rentedQuantity ?? 0),
-  });
+export default function AdminProducts({ refreshSignal = 0 }) {
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [customCategory, setCustomCategory] = useState("");
-  const [customType, setCustomType] = useState("");
-  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedGender, setSelectedGender] = useState("all");
+  const [selectedType, setSelectedType] = useState("all");
+  const [minQuantity, setMinQuantity] = useState(0);
+  const [maxQuantity, setMaxQuantity] = useState(100);
+  const [showFilter, setShowFilter] = useState(false);
 
-  useEffect(() => {
-    const initialCategory = product?.category || "clothing";
-    const isKnown = initialCategory === "clothing" || initialCategory === "equipment";
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [viewingProduct, setViewingProduct] = useState(null);
 
-    setFormData({
-      name: product?.name || "",
-      category: isKnown ? initialCategory : "__other__",
-      gender: product?.gender || "male",
-      type: product?.type || "",
-      quantity: Number(product?.quantity ?? 0),
-      availableQuantity: Number(product?.availableQuantity ?? 0),
-      rentedQuantity: Number(product?.rentedQuantity ?? 0),
-    });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
-    setCustomCategory(isKnown ? "" : initialCategory);
-    setCustomType(isKnown ? "" : (product?.type || ""));
-    setError("");
-  }, [product, mode]);
+  const toastOpts = { position: "top-center" };
+
+  const refreshProducts = async () => {
+    const data = await getProducts();
+    setProducts(data);
+  };
 
   useEffect(() => {
-    if (!isAdd) return;
-
-    setFormData((prev) => {
-      const q = Number(prev.quantity || 0);
-      return { ...prev, availableQuantity: q, rentedQuantity: 0 };
-    });
-  }, [isAdd, formData.quantity]);
-
-  const types = formData.category === "clothing" ? clothingTypes : equipmentTypes;
-
-  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setError("");
-
-    if (name === "quantity" || name === "availableQuantity" || name === "rentedQuantity") {
-      const num = Number(value);
-
-      setFormData((prev) => {
-        if (name === "quantity") {
-          const q = Math.max(0, num);
-
-          if (isAdd) {
-            return { ...prev, quantity: q, availableQuantity: q, rentedQuantity: 0 };
-          }
-
-          let a = clamp(Number(prev.availableQuantity || 0), 0, q);
-          let r = clamp(Number(prev.rentedQuantity || 0), 0, q);
-
-          if (a + r > q) {
-            const overflow = a + r - q;
-            a = Math.max(0, a - overflow);
-          }
-
-          return { ...prev, quantity: q, availableQuantity: a, rentedQuantity: r };
-        }
-
-        if (isAdd) return prev;
-
-        const q = Number(prev.quantity || 0);
-
-        if (name === "availableQuantity") {
-          let a = clamp(num, 0, q);
-          let r = clamp(Number(prev.rentedQuantity || 0), 0, q);
-          if (a + r > q) r = Math.max(0, q - a);
-          return { ...prev, availableQuantity: a, rentedQuantity: r };
-        }
-
-        if (name === "rentedQuantity") {
-          let r = clamp(num, 0, q);
-          let a = clamp(Number(prev.availableQuantity || 0), 0, q);
-          if (a + r > q) a = Math.max(0, q - r);
-          return { ...prev, availableQuantity: a, rentedQuantity: r };
-        }
-
-        return prev;
-      });
-
-      return;
-    }
-
-    setFormData((prev) => {
-      if (name === "category") {
-        if (value === "__other__") {
-          setCustomCategory("");
-          setCustomType("");
-          return { ...prev, category: "__other__", type: "" };
-        }
-
-        // normal categories
-        setCustomCategory("");
-        setCustomType("");
-        return {
-          ...prev,
-          category: value,
-          type: "",
-          gender: value === "clothing" ? prev.gender || "male" : prev.gender,
-        };
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        await refreshProducts();
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to load products (check login/token)", toastOpts);
+      } finally {
+        setIsLoading(false);
       }
-
-      return { ...prev, [name]: value };
-    });
-  };
-
-  const validate = () => {
-    if (!formData.name.trim()) return "Product name is required";
-
-    const finalCategory =
-      formData.category === "__other__" ? customCategory.trim() : formData.category;
-    if (!finalCategory) return "Category is required";
-
-    const finalType =
-      formData.category === "__other__" ? customType.trim() : formData.type;
-    if (!finalType) return "Please select / enter a product type";
-
-    if (Number.isNaN(formData.quantity) || formData.quantity < 0) {
-      return "Quantity must be 0 or more";
-    }
-
-    if (!isAdd) {
-      const q = Number(formData.quantity || 0);
-      const a = Number(formData.availableQuantity || 0);
-      const r = Number(formData.rentedQuantity || 0);
-
-      if (a < 0 || r < 0) return "Values must be 0 or more";
-      if (a > q || r > q) return "Available/Rented cannot exceed Total";
-      if (a + r !== q) return "Total must equal Available + Rented";
-    }
-
-    return "";
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError("");
-
-    const msg = validate();
-    if (msg) {
-      setError(msg);
-      return;
-    }
-
-    const finalCategory =
-      formData.category === "__other__" ? customCategory.trim() : formData.category;
-
-    const finalType =
-      formData.category === "__other__" ? customType.trim() : formData.type;
-
-    const productData = {
-      name: formData.name.trim(),
-      category: finalCategory,
-      ...(finalCategory === "clothing" ? { gender: formData.gender } : {}),
-      type: finalType,
-      quantity: Number(formData.quantity || 0),
-      availableQuantity: isAdd
-        ? Number(formData.quantity || 0)
-        : Number(formData.availableQuantity || 0),
-      rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
     };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
-    onConfirm(productData);
+  useEffect(() => {
+    if (!viewingProduct) return;
+    const latest = products.find((p) => p.id === viewingProduct.id);
+    if (!latest) setViewingProduct(null);
+    else setViewingProduct(latest);
+  }, [products, viewingProduct]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      if (searchQuery && !product.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+        return false;
+
+      if (selectedCategory !== "all" && product.category !== selectedCategory)
+        return false;
+
+      if (selectedCategory === "clothing" && selectedGender !== "all" && product.gender !== selectedGender)
+        return false;
+
+      if (selectedType !== "all" && product.type !== selectedType) return false;
+
+      if (Number(product.quantity) < minQuantity || Number(product.quantity) > maxQuantity)
+        return false;
+
+      return true;
+    });
+  }, [products, searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  const currentItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  const getAvailableTypes = () => {
+    if (selectedCategory === "all") return [];
+    return Array.from(
+      new Set(
+        products
+          .filter((p) => {
+            if (p.category !== selectedCategory) return false;
+            if (selectedCategory === "clothing" && selectedGender !== "all" && p.gender !== selectedGender)
+              return false;
+            return true;
+          })
+          .map((p) => p.type)
+          .filter(Boolean)
+      )
+    );
   };
 
-  // --- VIEW MODE UI ---
-  if (isView) {
-    return (
-      <div
-        className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-        onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-      >
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-            <div className="flex items-center gap-2 text-blue-600 font-bold uppercase tracking-wider text-xs">
-              <Info className="w-4 h-4" />
-              Product Details
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-xl transition-colors">
-              <X className="w-5 h-5 text-gray-500" />
+  const handleDelete = async (productId) => {
+    try {
+      await apiDeleteProduct(productId);
+      setProducts((prev) => prev.filter((p) => p.id !== productId));
+      toast.success("Product deleted", toastOpts);
+    } catch (e) {
+      console.error(e);
+      toast.error("Delete failed", toastOpts);
+    }
+  };
+
+  const handleEditSubmit = async (productData) => {
+    if (!editingProduct) return;
+    try {
+      const updated = await apiUpdateProduct(editingProduct.id, productData);
+      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success("Product updated", toastOpts);
+      setEditingProduct(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Edit failed", toastOpts);
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen flex flex-col bg-white">
+      <div className="bg-white border-b border-gray-200 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 py-4">
+            <button
+              onClick={() => {
+                setSelectedCategory("all");
+                setSelectedGender("all");
+                setSelectedType("all");
+              }}
+              className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                selectedCategory === "all"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+              type="button"
+            >
+              All
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedCategory("clothing");
+                setSelectedGender("all");
+                setSelectedType("all");
+              }}
+              className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                selectedCategory === "clothing"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+              type="button"
+            >
+              Clothing
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedCategory("equipment");
+                setSelectedGender("all");
+                setSelectedType("all");
+              }}
+              className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                selectedCategory === "equipment"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+              type="button"
+            >
+              Equipment
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600">
-                <Package className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">{formData.name}</h3>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">
-                  {formData.category === "__other__" ? (customCategory || "other") : formData.category}
-                </span>
-              </div>
+          {selectedCategory === "clothing" && (
+            <div className="flex items-center gap-3 pb-4">
+              <button
+                onClick={() => setSelectedGender("all")}
+                className={`px-4 py-1 rounded-full text-sm transition-all ${
+                  selectedGender === "all" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                }`}
+                type="button"
+              >
+                All
+              </button>
+              <button
+                onClick={() => setSelectedGender("male")}
+                className={`px-4 py-1 rounded-full text-sm transition-all ${
+                  selectedGender === "male" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                }`}
+                type="button"
+              >
+                Men
+              </button>
+              <button
+                onClick={() => setSelectedGender("female")}
+                className={`px-4 py-1 rounded-full text-sm transition-all ${
+                  selectedGender === "female" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                }`}
+                type="button"
+              >
+                Women
+              </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">Available</span>
-                <span className="text-2xl font-black text-blue-700">{formData.availableQuantity}</span>
-              </div>
-              <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">Rented</span>
-                <span className="text-2xl font-black text-orange-700">{formData.rentedQuantity}</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Tag className="w-4 h-4" /> Type</div>
-                <div className="font-semibold text-gray-900">{formData.type}</div>
-              </div>
-              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Users className="w-4 h-4" /> Gender</div>
-                <div className="font-semibold text-gray-900 capitalize">{formData.gender || "N/A"}</div>
-              </div>
-              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Total Stock</div>
-                <div className="font-semibold text-gray-900">{formData.quantity} Units</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-gray-50 flex justify-end">
-            <button onClick={onClose} className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm">
-              Close
-            </button>
-          </div>
+          )}
         </div>
       </div>
-    );
-  }
 
-  // --- ADD/EDIT MODE UI ---
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100 flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {isAdd ? "Add new product" : "Edit product"}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {isAdd ? "Create a new product in the inventory" : "Update product details and quantities"}
-            </p>
-          </div>
+      <div className="relative flex-grow">
+        <div
+          className="absolute inset-0 z-0 pointer-events-none opacity-20"
+          style={{
+            backgroundImage: `url(${mountainsBg})`,
+            backgroundPosition: "bottom center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            backgroundAttachment: "fixed",
+          }}
+        />
 
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center"
-            type="button"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Name <span className="text-rose-600">*</span>
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="e.g., Ski Jacket"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+          <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category <span className="text-rose-600">*</span>
-              </label>
-
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                required
-              >
-                {categoryOptions.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-
-              {formData.category === "__other__" && (
-                <input
-                  type="text"
-                  value={customCategory}
-                  onChange={(e) => {
-                    setCustomCategory(e.target.value);
-                    setError("");
-                  }}
-                  placeholder="Type a new category..."
-                  className="mt-3 w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              )}
-            </div>
-
-            {formData.category === "clothing" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  required
-                >
-                  <option value="male">Men</option>
-                  <option value="female">Women</option>
-                </select>
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-3xl font-bold text-gray-900">Product Management</h2>
+                <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 text-xs font-bold animate-pulse">
+                  <Snowflake className="w-4 h-4" />
+                  <span>-4°C SKI RESORT</span>
+                </div>
               </div>
-            )}
+              <p className="text-gray-600">Manage all products in the system</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Type <span className="text-rose-600">*</span>
-            </label>
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => setShowFilter(!showFilter)}
+              className={`px-4 py-3 border rounded-lg transition-all ${
+                showFilter
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+              }`}
+              type="button"
+            >
+              <Filter className="w-5 h-5" />
+            </button>
 
-            {formData.category === "__other__" ? (
+            <div className="flex-1 relative">
               <input
                 type="text"
-                value={customType}
-                onChange={(e) => {
-                  setCustomType(e.target.value);
-                  setError("");
-                }}
-                placeholder="Type a new product type..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/90"
               />
-            ) : (
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                required
-              >
-                <option value="">Select Type</option>
-                {types.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+
+          {showFilter && (
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
+              <h3 className="font-medium text-gray-900 mb-4 tracking-wide uppercase text-sm">
+                Advanced Filters
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {selectedCategory !== "all" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Type
+                    </label>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => setSelectedType(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="all">All Types</option>
+                      {getAvailableTypes().map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Min Total Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(Number(e.target.value))}
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Total Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={maxQuantity}
+                    onChange={(e) => setMaxQuantity(Number(e.target.value))}
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="text-gray-500 text-center py-20 font-medium">
+              Loading products...
+            </div>
+          ) : currentItems.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                {currentItems.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    viewMode="admin"
+                    onEdit={() => setEditingProduct(product)}
+                    onDelete={() => handleDelete(product.id)}
+                    onView={() => setViewingProduct(product)}
+                  />
                 ))}
-              </select>
-            )}
-          </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Total Quantity <span className="text-rose-600">*</span>
-              </label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 mt-4 py-4">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white shadow-sm"
+                    type="button"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
 
-            {!isAdd && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Available</label>
-                  <input
-                    type="number"
-                    name="availableQuantity"
-                    value={formData.availableQuantity}
-                    onChange={handleChange}
-                    min="0"
-                    max={formData.quantity}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <button
+                        key={i + 1}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`w-11 h-11 rounded-xl border font-bold text-sm transition-all shadow-sm ${
+                          currentPage === i + 1
+                            ? "bg-blue-600 text-white border-blue-600 scale-110 z-10"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                        }`}
+                        type="button"
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white shadow-sm"
+                    type="button"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rented</label>
-                  <input
-                    type="number"
-                    name="rentedQuantity"
-                    value={formData.rentedQuantity}
-                    onChange={handleChange}
-                    min="0"
-                    max={formData.quantity}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          {isAdd && (
-            <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-              In <span className="font-medium">Add</span> mode,{" "}
-              <span className="font-medium">Available</span> will automatically equal{" "}
-              <span className="font-medium">Total</span>, and{" "}
-              <span className="font-medium">Rented</span> will be{" "}
-              <span className="font-medium">0</span>.
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 bg-white/50 rounded-xl border-2 border-dashed border-gray-200">
+              <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No products found
+              </h3>
+              <p className="text-gray-500">Try adjusting your filters or search query</p>
             </div>
           )}
-
-          {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-11 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="h-11 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
-            >
-              {isAdd ? "Add Product" : "Save Changes"}
-            </button>
-          </div>
-
-          <div className="h-2" />
-        </form>
+        </div>
       </div>
+
+      {/* Dialogs */}
+      {editingProduct && (
+        <ProductFormDialog
+          mode="edit"
+          product={editingProduct}
+          onConfirm={handleEditSubmit}
+          onClose={() => setEditingProduct(null)}
+        />
+      )}
+
+      {viewingProduct && (
+        <ProductFormDialog
+          mode="view"
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
+          onConfirm={() => {}}
+        />
+      )}
     </div>
   );
 }

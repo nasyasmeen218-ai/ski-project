@@ -45,6 +45,7 @@ export default function DashboardLayout({
         quantity: Number(productData.quantity ?? 0),
         availableQuantity: Number(productData.availableQuantity ?? 0),
         rentedQuantity: Number(productData.rentedQuantity ?? 0),
+        imageurl: productData.imageurl || "", // ✅ חדש
       };
 
       await createProduct(payload);

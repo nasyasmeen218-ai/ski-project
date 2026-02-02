@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Package, Tag, Users, Hash, Info, ImageIcon } from "lucide-react";
 
-export default function ProductFormDialog({ mode, product, onConfirm, onClose }) {
+export default function ProductFormDialog({
+  mode,
+  product,
+  onConfirm = () => {},
+  onClose = () => {},
+}) {
   const isAdd = mode === "add";
   const isView = mode === "view";
 
@@ -38,7 +43,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
   const [customType, setCustomType] = useState("");
   const [error, setError] = useState("");
 
-  // --- סינכרון הנתונים כשהמוצר משתנה ---
   useEffect(() => {
     const initialCategory = product?.category || "clothing";
     const isKnown = initialCategory === "clothing" || initialCategory === "equipment";
@@ -59,22 +63,15 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     setError("");
   }, [product, mode]);
 
-  // --- שמירה על הלוגיקה המקורית: ב-Add mode available=total, rented=0 ---
   useEffect(() => {
     if (!isAdd) return;
-
     setFormData((prev) => {
       const q = Number(prev.quantity || 0);
-      return {
-        ...prev,
-        availableQuantity: q,
-        rentedQuantity: 0,
-      };
+      return { ...prev, availableQuantity: q, rentedQuantity: 0 };
     });
   }, [isAdd, formData.quantity]);
 
-  const types =
-    formData.category === "clothing" ? clothingTypes : equipmentTypes;
+  const types = formData.category === "clothing" ? clothingTypes : equipmentTypes;
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -82,7 +79,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     const { name, value } = e.target;
     setError("");
 
-    // quantities
     if (name === "quantity" || name === "availableQuantity" || name === "rentedQuantity") {
       const num = Number(value);
 
@@ -91,12 +87,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           const q = Math.max(0, num);
 
           if (isAdd) {
-            return {
-              ...prev,
-              quantity: q,
-              availableQuantity: q,
-              rentedQuantity: 0,
-            };
+            return { ...prev, quantity: q, availableQuantity: q, rentedQuantity: 0 };
           }
 
           let a = clamp(Number(prev.availableQuantity || 0), 0, q);
@@ -117,7 +108,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         if (name === "availableQuantity") {
           let a = clamp(num, 0, q);
           let r = clamp(Number(prev.rentedQuantity || 0), 0, q);
-
           if (a + r > q) r = Math.max(0, q - a);
           return { ...prev, availableQuantity: a, rentedQuantity: r };
         }
@@ -125,7 +115,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         if (name === "rentedQuantity") {
           let r = clamp(num, 0, q);
           let a = clamp(Number(prev.availableQuantity || 0), 0, q);
-
           if (a + r > q) a = Math.max(0, q - r);
           return { ...prev, availableQuantity: a, rentedQuantity: r };
         }
@@ -144,7 +133,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           return { ...prev, category: "__other__", type: "" };
         }
 
-        // normal category
         setCustomCategory("");
         setCustomType("");
         return {
@@ -170,15 +158,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
       formData.category === "__other__" ? customType.trim() : formData.type;
     if (!finalType) return "Please select / enter a product type";
 
-    if (Number.isNaN(formData.quantity) || formData.quantity < 0) {
-      return "Quantity must be 0 or more";
-    }
+    if (Number.isNaN(formData.quantity) || formData.quantity < 0) return "Quantity must be 0 or more";
 
     if (!isAdd) {
       const q = Number(formData.quantity || 0);
       const a = Number(formData.availableQuantity || 0);
       const r = Number(formData.rentedQuantity || 0);
-
       if (a < 0 || r < 0) return "Values must be 0 or more";
       if (a > q || r > q) return "Available/Rented cannot exceed Total";
       if (a + r !== q) return "Total must equal Available + Rented";
@@ -199,7 +184,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
     const finalCategory =
       formData.category === "__other__" ? customCategory.trim() : formData.category;
-
     const finalType =
       formData.category === "__other__" ? customType.trim() : formData.type;
 
@@ -209,9 +193,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
       ...(finalCategory === "clothing" ? { gender: formData.gender } : {}),
       type: finalType,
       quantity: Number(formData.quantity || 0),
-      availableQuantity: isAdd
-        ? Number(formData.quantity || 0)
-        : Number(formData.availableQuantity || 0),
+      availableQuantity: isAdd ? Number(formData.quantity || 0) : Number(formData.availableQuantity || 0),
       rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
       imageurl: formData.imageurl || "",
     };
@@ -219,7 +201,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     onConfirm(productData);
   };
 
-  // --- VIEW MODE UI ---
   if (isView) {
     return (
       <div
@@ -291,7 +272,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     );
   }
 
-  // --- ADD/EDIT MODE UI ---
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
@@ -320,7 +300,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Image URL */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Product Image URL
@@ -347,7 +326,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             </div>
           </div>
 
-          {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Name <span className="text-rose-600">*</span>
@@ -363,7 +341,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             />
           </div>
 
-          {/* Category + Gender */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -418,7 +395,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
-          {/* Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Type <span className="text-rose-600">*</span>
@@ -454,7 +430,6 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
-          {/* Quantities */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
