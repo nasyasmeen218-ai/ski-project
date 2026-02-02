@@ -1,7 +1,8 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# מייבאים את הסוקט מהקובץ החדש
-from app.socket_manager import sio, socket_app 
+
+# socket
+from app.socket_manager import sio, socket_app
 
 # routers
 from app.api.auth import router as auth_router
@@ -9,11 +10,12 @@ from app.api.products import router as products_router
 from app.api.rentals import router as rentals_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.admin_users import router as admin_users_router
-
+from app.api.orders import router as orders_router
+from app.api.cart import router as cart_router
 
 app = FastAPI(title="SkiRent API")
 
-# ✅ 1. הגדרות CORS של FastAPI
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -27,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ 2. אירועי סוקט
+# ✅ socket events
 @sio.event
 async def connect(sid, environ):
     print(f"✅ Client connected: {sid}")
@@ -36,17 +38,21 @@ async def connect(sid, environ):
 async def disconnect(sid):
     print(f"❌ Client disconnected: {sid}")
 
-# ✅ 3. Routers - הורדתי את ה-/api מה-prefix כדי למנוע שגיאות 404
+# ✅ routers
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(products_router, prefix="/products", tags=["products"])
 app.include_router(rentals_router, prefix="/rentals", tags=["rentals"])
 app.include_router(audit_logs_router, prefix="/audit-logs", tags=["audit-logs"])
+
+# אלו כבר מגיעים עם prefix בתוך הקובץ שלהם
 app.include_router(admin_users_router)
+app.include_router(orders_router)
+app.include_router(cart_router)
+
 
 @app.get("/health")
 def health():
     return {"ok": True}
 
-# ✅ 4. חיבור ה-Socket.io ל-FastAPI
-# חייב להישאר בסוף!
+# ✅ mount socket.io (must be last)
 app.mount("/socket.io", socket_app)
