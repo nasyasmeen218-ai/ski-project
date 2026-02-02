@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { X, Package, Tag, Users, Hash, Info } from "lucide-react";
+import { X, Package, Tag, Users, Hash, Info, ImageIcon } from "lucide-react";
 
 export default function ProductFormDialog({ mode, product, onConfirm, onClose }) {
   const isAdd = mode === "add";
@@ -10,10 +10,11 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
   const equipmentTypes = useMemo(
-    () => ["Skis", "Goggles", "Helmets", "Gloves", "Socks", "Boots"],
+    () => ["Skis", "Goggles", "Helmets", "Gloves", "Socks", "Boots", "Snowboard"],
     []
   );
 
+<<<<<<< HEAD
   const categoryOptions = useMemo(
     () => [
       { value: "clothing", label: "Clothing" },
@@ -23,6 +24,9 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
 
+=======
+  // --- STATE הכולל את imageurl ---
+>>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
   const [formData, setFormData] = useState({
     name: product?.name || "",
     category: product?.category || "clothing",
@@ -31,6 +35,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     quantity: Number(product?.quantity ?? 0),
     availableQuantity: Number(product?.availableQuantity ?? 0),
     rentedQuantity: Number(product?.rentedQuantity ?? 0),
+    imageurl: product?.imageurl || "", 
   });
 
   const [customCategory, setCustomCategory] = useState("");
@@ -38,6 +43,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
   const [error, setError] = useState("");
 
+  // --- סינכרון הנתונים כשהמוצר משתנה ---
   useEffect(() => {
     const initialCategory = product?.category || "clothing";
 
@@ -49,6 +55,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
       quantity: Number(product?.quantity ?? 0),
       availableQuantity: Number(product?.availableQuantity ?? 0),
       rentedQuantity: Number(product?.rentedQuantity ?? 0),
+      imageurl: product?.imageurl || "",
     });
 
     const isKnown =
@@ -59,6 +66,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     setError("");
   }, [product, mode]);
 
+  // --- פונקציית העזר המקורית שלך ---
   useEffect(() => {
     if (!isAdd) return;
 
@@ -77,6 +85,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
+  // --- HANDLER המקורי שלך (כולל כל חישובי הכמויות) ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setError("");
@@ -182,6 +191,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     });
   };
 
+  // --- VALIDATION המקורי שלך ---
   const validate = () => {
     if (!formData.name.trim()) return "Product name is required";
 
@@ -241,12 +251,13 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
         ? Number(formData.quantity || 0)
         : Number(formData.availableQuantity || 0),
       rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
+      imageurl: formData.imageurl, // <--- הוספת השדה לשליחה
     };
 
     onConfirm(productData);
   };
 
-  // --- VIEW MODE UI ---
+  // --- VIEW MODE UI (כולל תצוגת תמונה) ---
   if (isView) {
     return (
       <div
@@ -268,9 +279,19 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           </div>
 
           <div className="p-6 space-y-6">
+<<<<<<< HEAD
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600">
                 <Package className="w-8 h-8" />
+=======
+            <div className="flex items-center gap-4 border-b border-gray-50 pb-6">
+              <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
+                {formData.imageurl ? (
+                  <img src={formData.imageurl} alt={formData.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Package className="w-8 h-8 text-blue-400" />
+                )}
+>>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
@@ -345,12 +366,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
   // --- ADD/EDIT MODE UI ---
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-gray-100">
         <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100 flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
@@ -365,15 +386,42 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center"
+            className="w-10 h-10 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center transition"
             type="button"
-            aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
+          {/* הוספת שדה תמונה בטופס */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Product Image URL
+            </label>
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  name="imageurl"
+                  value={formData.imageurl}
+                  onChange={handleChange}
+                  placeholder="https://link-to-image.com/img.jpg"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pl-10"
+                />
+                <ImageIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+              </div>
+              <div className="w-12 h-12 rounded-xl border bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                {formData.imageurl ? (
+                  <img src={formData.imageurl} className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-5 h-5 text-gray-300" />
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Name <span className="text-rose-600">*</span>
@@ -529,6 +577,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             )}
           </div>
 
+<<<<<<< HEAD
           {isAdd && (
             <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
               In <span className="font-medium">Add</span> mode,{" "}
@@ -539,6 +588,8 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             </div>
           )}
 
+=======
+>>>>>>> 0b057f9d3ae29310e5797eaaa6460781f2c3fc15
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm">
               {error}
@@ -555,13 +606,11 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             </button>
             <button
               type="submit"
-              className="h-11 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
+              className="h-11 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition font-medium shadow-md"
             >
               {isAdd ? "Add Product" : "Save Changes"}
             </button>
           </div>
-
-          <div className="h-2" />
         </form>
       </div>
     </div>
