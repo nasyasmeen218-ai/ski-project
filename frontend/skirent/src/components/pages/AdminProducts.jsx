@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Filter, Package2, Snowflake } from "lucide-react";
+import { Search, Filter, Package2, Snowflake, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import ProductCard from "../layouts/layout/ProductCard";
@@ -30,6 +30,10 @@ export default function AdminProducts({ addSignal = 0 }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
   const [adding, setAdding] = useState(false);
+
+  // --- PAGINATION STATES ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6; // כמות מוצרים בדף
 
   const toastOpts = { position: "top-center" };
 
@@ -72,7 +76,12 @@ export default function AdminProducts({ addSignal = 0 }) {
     else setViewingProduct(latest);
   }, [products, viewingProduct]);
 
-  // --- FILTERED PRODUCTS LOGIC ---
+  // איפוס הדף ל-1 כשמשנים פילטרים או חיפוש כדי שלא נישאר בדף ריק
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+
+  // --- FILTERED PRODUCTS LOGIC המקורי ---
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -103,6 +112,13 @@ export default function AdminProducts({ addSignal = 0 }) {
     maxQuantity,
   ]);
 
+  // --- PAGINATION LOGIC ---
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const currentItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
   // --- GET AVAILABLE TYPES FUNCTION ---
   const getAvailableTypes = () => {
     if (selectedCategory === "all") return [];
@@ -125,7 +141,7 @@ export default function AdminProducts({ addSignal = 0 }) {
     );
   };
 
-  // --- HANDLERS (DELETE, EDIT, ADD) ---
+  // --- HANDLERS (DELETE, EDIT, ADD) המקוריים ---
   const handleDelete = async (productId) => {
     try {
       await apiDeleteProduct(productId);
@@ -271,7 +287,7 @@ export default function AdminProducts({ addSignal = 0 }) {
           }}
         ></div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -365,19 +381,59 @@ export default function AdminProducts({ addSignal = 0 }) {
 
           {isLoading ? (
             <div className="text-gray-500 text-center py-20 font-medium">Loading products...</div>
-          ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  viewMode="admin"
-                  onEdit={() => setEditingProduct(product)}
-                  onDelete={() => handleDelete(product.id)}
-                  onView={() => setViewingProduct(product)}
-                />
-              ))}
-            </div>
+          ) : currentItems.length > 0 ? (
+            <>
+              {/* רשימת המוצרים המוגבלת לפי דפים */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                {currentItems.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    viewMode="admin"
+                    onEdit={() => setEditingProduct(product)}
+                    onDelete={() => handleDelete(product.id)}
+                    onView={() => setViewingProduct(product)}
+                  />
+                ))}
+              </div>
+
+              {/* PAGINATION UI - כחול סקי מקצועי */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 mt-4 py-4">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white shadow-sm"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {[...Array(totalPages)].map((_, i) => (
+                      <button
+                        key={i + 1}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`w-11 h-11 rounded-xl border font-bold text-sm transition-all shadow-sm ${
+                          currentPage === i + 1 
+                            ? "bg-blue-600 text-white border-blue-600 scale-110 z-10" 
+                            : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white shadow-sm"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12 bg-white/50 rounded-xl border-2 border-dashed border-gray-200">
               <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
