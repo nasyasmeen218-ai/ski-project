@@ -14,6 +14,15 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     []
   );
 
+  const categoryOptions = useMemo(
+    () => [
+      { value: "clothing", label: "Clothing" },
+      { value: "equipment", label: "Equipment" },
+      { value: "__other__", label: "Other / New category" },
+    ],
+    []
+  );
+
   const [formData, setFormData] = useState({
     name: product?.name || "",
     category: product?.category || "clothing",
@@ -24,18 +33,29 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     rentedQuantity: Number(product?.rentedQuantity ?? 0),
   });
 
+  const [customCategory, setCustomCategory] = useState("");
+  const [customType, setCustomType] = useState("");
+
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const initialCategory = product?.category || "clothing";
+
     setFormData({
       name: product?.name || "",
-      category: product?.category || "clothing",
+      category: initialCategory,
       gender: product?.gender || "male",
       type: product?.type || "",
       quantity: Number(product?.quantity ?? 0),
       availableQuantity: Number(product?.availableQuantity ?? 0),
       rentedQuantity: Number(product?.rentedQuantity ?? 0),
     });
+
+    const isKnown =
+      initialCategory === "clothing" || initialCategory === "equipment";
+    setCustomCategory(isKnown ? "" : initialCategory);
+
+    setCustomType("");
     setError("");
   }, [product, mode]);
 
@@ -52,7 +72,8 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     });
   }, [isAdd, formData.quantity]);
 
-  const types = formData.category === "clothing" ? clothingTypes : equipmentTypes;
+  const types =
+    formData.category === "clothing" ? clothingTypes : equipmentTypes;
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -60,7 +81,11 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
     const { name, value } = e.target;
     setError("");
 
-    if (name === "quantity" || name === "availableQuantity" || name === "rentedQuantity") {
+    if (
+      name === "quantity" ||
+      name === "availableQuantity" ||
+      name === "rentedQuantity"
+    ) {
       const num = Number(value);
 
       setFormData((prev) => {
@@ -84,7 +109,12 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             a = Math.max(0, a - overflow);
           }
 
-          return { ...prev, quantity: q, availableQuantity: a, rentedQuantity: r };
+          return {
+            ...prev,
+            quantity: q,
+            availableQuantity: a,
+            rentedQuantity: r,
+          };
         }
 
         if (isAdd) return prev;
@@ -121,13 +151,31 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
     setFormData((prev) => {
       if (name === "category") {
+        if (value === "__other__") {
+          return {
+            ...prev,
+            category: "__other__",
+            type: "",
+          };
+        }
+
         const nextCategory = value;
+        setCustomCategory("");
+        setCustomType("");
+
         return {
           ...prev,
           category: nextCategory,
           type: "",
-          gender: nextCategory === "clothing" ? prev.gender || "male" : prev.gender,
+          gender:
+            nextCategory === "clothing"
+              ? prev.gender || "male"
+              : prev.gender,
         };
+      }
+
+      if (name === "type") {
+        return { ...prev, type: value };
       }
 
       return { ...prev, [name]: value };
@@ -136,8 +184,21 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
 
   const validate = () => {
     if (!formData.name.trim()) return "Product name is required";
-    if (!formData.type) return "Please select a product type";
-    if (Number.isNaN(formData.quantity) || formData.quantity < 0) return "Quantity must be 0 or more";
+
+    const finalCategory =
+      formData.category === "__other__"
+        ? customCategory.trim()
+        : formData.category;
+
+    if (!finalCategory) return "Category is required";
+
+    const finalType =
+      formData.category === "__other__" ? customType.trim() : formData.type;
+
+    if (!finalType) return "Please select / enter a product type";
+
+    if (Number.isNaN(formData.quantity) || formData.quantity < 0)
+      return "Quantity must be 0 or more";
 
     if (!isAdd) {
       const q = Number(formData.quantity || 0);
@@ -162,13 +223,23 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
       return;
     }
 
+    const finalCategory =
+      formData.category === "__other__"
+        ? customCategory.trim()
+        : formData.category;
+
+    const finalType =
+      formData.category === "__other__" ? customType.trim() : formData.type;
+
     const productData = {
       name: formData.name.trim(),
-      category: formData.category,
-      ...(formData.category === "clothing" ? { gender: formData.gender } : {}),
-      type: formData.type,
+      category: finalCategory,
+      ...(finalCategory === "clothing" ? { gender: formData.gender } : {}),
+      type: finalType,
       quantity: Number(formData.quantity || 0),
-      availableQuantity: isAdd ? Number(formData.quantity || 0) : Number(formData.availableQuantity || 0),
+      availableQuantity: isAdd
+        ? Number(formData.quantity || 0)
+        : Number(formData.availableQuantity || 0),
       rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
     };
 
@@ -178,61 +249,100 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
   // --- VIEW MODE UI ---
   if (isView) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+        onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      >
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
             <div className="flex items-center gap-2 text-blue-600 font-bold uppercase tracking-wider text-xs">
               <Info className="w-4 h-4" />
               Product Details
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-xl transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
           </div>
-          
+
           <div className="p-6 space-y-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600"><Package className="w-8 h-8" /></div>
+              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100 text-blue-600">
+                <Package className="w-8 h-8" />
+              </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{formData.name}</h3>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">{formData.category}</span>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {formData.name}
+                </h3>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">
+                  {formData.category}
+                </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">Available</span>
-                <span className="text-2xl font-black text-blue-700">{formData.availableQuantity}</span>
+                <span className="block text-[10px] uppercase font-bold text-blue-400 mb-1">
+                  Available
+                </span>
+                <span className="text-2xl font-black text-blue-700">
+                  {formData.availableQuantity}
+                </span>
               </div>
               <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 text-center">
-                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">Rented</span>
-                <span className="text-2xl font-black text-orange-700">{formData.rentedQuantity}</span>
+                <span className="block text-[10px] uppercase font-bold text-orange-400 mb-1">
+                  Rented
+                </span>
+                <span className="text-2xl font-black text-orange-700">
+                  {formData.rentedQuantity}
+                </span>
               </div>
             </div>
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Tag className="w-4 h-4" /> Type</div>
-                <div className="font-semibold text-gray-900">{formData.type}</div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Tag className="w-4 h-4" /> Type
+                </div>
+                <div className="font-semibold text-gray-900">
+                  {formData.type}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Users className="w-4 h-4" /> Gender</div>
-                <div className="font-semibold text-gray-900 capitalize">{formData.gender || "N/A"}</div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Users className="w-4 h-4" /> Gender
+                </div>
+                <div className="font-semibold text-gray-900 capitalize">
+                  {formData.gender || "N/A"}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Total Stock</div>
-                <div className="font-semibold text-gray-900">{formData.quantity} Units</div>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Hash className="w-4 h-4" /> Total Stock
+                </div>
+                <div className="font-semibold text-gray-900">
+                  {formData.quantity} Units
+                </div>
               </div>
             </div>
           </div>
-          
+
           <div className="p-4 bg-gray-50 flex justify-end">
-            <button onClick={onClose} className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm">Close</button>
+            <button
+              onClick={onClose}
+              className="px-8 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition shadow-sm"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // --- ADD/EDIT MODE UI (הקוד המקורי שלך) ---
+  // --- ADD/EDIT MODE UI ---
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
@@ -247,7 +357,9 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
               {isAdd ? "Add new product" : "Edit product"}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isAdd ? "Create a new product in the inventory" : "Update product details and quantities"}
+              {isAdd
+                ? "Create a new product in the inventory"
+                : "Update product details and quantities"}
             </p>
           </div>
 
@@ -282,6 +394,7 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category <span className="text-rose-600">*</span>
               </label>
+
               <select
                 name="category"
                 value={formData.category}
@@ -289,9 +402,26 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 required
               >
-                <option value="clothing">Clothing</option>
-                <option value="equipment">Equipment</option>
+                {categoryOptions.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
+
+              {formData.category === "__other__" && (
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={(e) => {
+                    setCustomCategory(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Type a new category..."
+                  className="mt-3 w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              )}
             </div>
 
             {formData.category === "clothing" && (
@@ -317,20 +447,35 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Type <span className="text-rose-600">*</span>
             </label>
-            <select
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              required
-            >
-              <option value="">Select Type</option>
-              {types.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+
+            {formData.category === "__other__" ? (
+              <input
+                type="text"
+                value={customType}
+                onChange={(e) => {
+                  setCustomType(e.target.value);
+                  setError("");
+                }}
+                placeholder="Type a new product type..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            ) : (
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                required
+              >
+                <option value="">Select Type</option>
+                {types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -352,7 +497,9 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
             {!isAdd && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Available</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Available
+                  </label>
                   <input
                     type="number"
                     name="availableQuantity"
@@ -365,7 +512,9 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rented</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rented
+                  </label>
                   <input
                     type="number"
                     name="rentedQuantity"
@@ -383,8 +532,8 @@ export default function ProductFormDialog({ mode, product, onConfirm, onClose })
           {isAdd && (
             <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
               In <span className="font-medium">Add</span> mode,{" "}
-              <span className="font-medium">Available</span> will automatically equal{" "}
-              <span className="font-medium">Total</span>, and{" "}
+              <span className="font-medium">Available</span> will automatically
+              equal <span className="font-medium">Total</span>, and{" "}
               <span className="font-medium">Rented</span> will be{" "}
               <span className="font-medium">0</span>.
             </div>
