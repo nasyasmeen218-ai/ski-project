@@ -17,10 +17,13 @@ class Product(Base):
     category: Mapped[str] = mapped_column(String(20), nullable=False)  # clothing | equipment
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)  # male | female | null
     type: Mapped[str] = mapped_column(String(60), nullable=False)
+    
+    # השדה החדש שהוספנו
+    imageurl: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rented_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

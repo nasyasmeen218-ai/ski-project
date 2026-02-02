@@ -9,6 +9,7 @@ export type Product = {
   quantity: number;
   availableQuantity?: number;
   rentedQuantity?: number;
+  imageurl?: string;
 };
 
 export type CreateProductPayload = Omit<Product, "id">;

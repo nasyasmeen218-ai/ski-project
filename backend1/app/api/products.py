@@ -18,6 +18,7 @@ router = APIRouter()
 
 
 def to_product_out(p: Product) -> dict:
+    """הופך את אובייקט המוצר מה-DB ל-JSON עבור הפרונטנד"""
     return {
         "id": str(p.id),
         "name": p.name,
@@ -27,6 +28,7 @@ def to_product_out(p: Product) -> dict:
         "quantity": p.quantity,
         "availableQuantity": p.available_quantity,
         "rentedQuantity": p.rented_quantity,
+        "imageurl": p.imageurl,  # שדה התמונה החדש
     }
 
 
@@ -50,7 +52,6 @@ def create_product(
     if data.availableQuantity + data.rentedQuantity != data.quantity:
         raise HTTPException(status_code=400, detail="Total quantity must equal available + rented")
 
-    # Optional pre-check (nice UX). Still keep IntegrityError handling as the source of truth.
     existing = db.query(Product).filter(Product.name == data.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="Product already exists")
@@ -64,6 +65,7 @@ def create_product(
         quantity=data.quantity,
         available_quantity=data.availableQuantity,
         rented_quantity=data.rentedQuantity,
+        imageurl=data.imageurl, # שמירה של ה-URL ביצירה
     )
 
     db.add(product)
@@ -112,6 +114,8 @@ def update_product(
         product.gender = payload.gender
     if payload.type is not None:
         product.type = payload.type
+    if payload.imageurl is not None: # עדכון ה-URL בעריכה
+        product.imageurl = payload.imageurl
 
     new_quantity = product.quantity if payload.quantity is None else payload.quantity
     new_available = product.available_quantity if payload.availableQuantity is None else payload.availableQuantity
@@ -155,12 +159,12 @@ def delete_product(
 # -------------------- Inventory Actions --------------------
 
 class QtyRequest(BaseModel):
-    qty: int = Field(default=1, ge=1, description="How many units", examples=[1])
+    qty: int = Field(default=1, ge=1, description="How many units")
 
 
 class RentRequest(BaseModel):
-    qty: int = Field(default=1, ge=1, description="How many units", examples=[1])
-    days: int = Field(default=2, ge=1, description="Rental duration in days", examples=[2])
+    qty: int = Field(default=1, ge=1, description="How many units")
+    days: int = Field(default=2, ge=1, description="Rental duration in days")
 
 
 @router.post("/{product_id}/take")
@@ -226,11 +230,7 @@ def return_taken_product(
     return to_product_out(product)
 
 
-@router.post(
-    "/{product_id}/rent",
-    summary="Rent product",
-    description="Rent a product for a number of days. Decreases availableQuantity, increases rentedQuantity, and creates a Rental record.",
-)
+@router.post("/{product_id}/rent")
 def rent_product(
     product_id: str,
     body: RentRequest,
@@ -275,11 +275,7 @@ def rent_product(
     return to_product_out(product)
 
 
-@router.post(
-    "/{product_id}/return-rented",
-    summary="Return rented product",
-    description="Return a rented product. Closes the latest ACTIVE rental for this user+product and updates inventory.",
-)
+@router.post("/{product_id}/return-rented")
 def return_rented_product(
     product_id: str,
     body: QtyRequest,

@@ -76,11 +76,24 @@ export default function ProductCard({
     setShowDeleteConfirm(false);
   };
 
-  return (
+return (
     <>
-      {/* CARD - make equal height */}
+      {/* CARD - flex flex-col ו-h-full מבטיחים שכל הכרטיסים באותה שורה יהיו באותו גובה */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full">
-        {/* Header */}
+        
+        {/* Container לתמונה - object-contain מבטיח שהתמונה לא תיחתך */}
+        <div className="relative h-56 w-full bg-gray-50 flex items-center justify-center p-4 border-b border-gray-100">
+          <img
+            src={product.imageurl || product.imageUrl || "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg"}
+            alt={product.name}
+            className="max-h-full max-w-full object-contain transition-transform duration-500 hover:scale-105"
+            onError={(e) => {
+              e.target.src = "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
+            }}
+          />
+        </div>
+
+        {/* Header Section */}
         <div className="px-5 pt-5 pb-4 border-b border-gray-100 bg-white">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -93,14 +106,10 @@ export default function ProductCard({
                   {product.name}
                 </h3>
                 <div className="mt-1 flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${categoryBadge.cls}`}
-                  >
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${categoryBadge.cls}`}>
                     {categoryBadge.text}
                   </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stockStatus.cls}`}
-                  >
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stockStatus.cls}`}>
                     {stockStatus.text}
                   </span>
                 </div>
@@ -120,13 +129,12 @@ export default function ProductCard({
             )}
           </div>
 
-          <p className="mt-3 text-sm text-gray-600">
-            {product.category === "clothing" ? "Clothing" : "Equipment"} •{" "}
-            {getCategoryLabel()}
+          <p className="mt-3 text-sm text-gray-600 uppercase tracking-tight">
+            {product.category === "clothing" ? "Clothing" : "Equipment"} • {getCategoryLabel()}
           </p>
         </div>
 
-        {/* Body grows, Actions stick to bottom */}
+        {/* Body - flex-1 גורם לחלק הזה למלא את השטח הנותר ולדחוף את האקשנים למטה */}
         <div className="px-5 pt-4 flex-1 flex flex-col">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
@@ -137,15 +145,15 @@ export default function ProductCard({
 
           {/* Reserve space so all cards align */}
           <div className="mt-3 min-h-[24px]">
-            {rented > 0 ? (
+            {rented > 0 && (
               <div className="flex items-center gap-2 text-sm text-orange-700">
                 <Clock className="w-4 h-4" />
                 <span>{rented} currently rented</span>
               </div>
-            ) : null}
+            )}
           </div>
 
-          {/* Actions pinned to bottom */}
+          {/* Actions pinned to bottom using mt-auto */}
           <div className="mt-auto pb-5 pt-4">
             {viewMode === "employee" && (
               <div className="grid grid-cols-3 gap-2">
@@ -200,14 +208,14 @@ export default function ProductCard({
       {/* DELETE MODAL */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-gray-100">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">
                 Delete product
               </h3>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="w-9 h-9 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center"
+                className="w-9 h-9 rounded-xl hover:bg-gray-50 inline-flex items-center justify-center transition"
                 type="button"
                 aria-label="Close"
                 title="Close"
@@ -217,7 +225,7 @@ export default function ProductCard({
             </div>
 
             <div className="p-5">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 leading-relaxed">
                 Are you sure you want to delete{" "}
                 <span className="font-semibold text-gray-900">
                   {product.name}
@@ -225,17 +233,17 @@ export default function ProductCard({
                 ? This action cannot be undone.
               </p>
 
-              <div className="mt-5 flex gap-3">
+              <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 h-10 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+                  className="flex-1 h-10 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition font-medium"
                   type="button"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="flex-1 h-10 rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition"
+                  className="flex-1 h-10 rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition font-medium"
                   type="button"
                 >
                   Delete
