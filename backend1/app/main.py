@@ -6,6 +6,8 @@ from app.api.auth import router as auth_router
 from app.api.products import router as products_router
 from app.api.rentals import router as rentals_router
 from app.api.audit_logs import router as audit_logs_router
+from app.api.admin_users import router as admin_users_router
+
 
 app = FastAPI(title="SkiRent API")
 
@@ -29,6 +31,7 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(products_router, prefix="/products", tags=["products"])
 app.include_router(rentals_router, prefix="/rentals", tags=["rentals"])
 app.include_router(audit_logs_router, prefix="/audit-logs", tags=["audit-logs"])
+app.include_router(admin_users_router)
 
 
 @app.get("/health")

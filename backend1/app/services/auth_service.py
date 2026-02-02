@@ -13,6 +13,7 @@ def create_user(db: Session, username: str, password: str) -> User:
             username=username,
             password_hash=hash_password(password),
             role="employee",
+            is_active=True,  # ✅ חדש (גם אם יש default ב-DB)
         )
     except Exception as e:
         raise ValueError("INVALID_USER_DATA") from e
@@ -21,16 +22,19 @@ def create_user(db: Session, username: str, password: str) -> User:
     db.refresh(user)
     return user
 
-
 def authenticate_user(db: Session, username: str, password: str) -> User:
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise ValueError("INVALID_CREDENTIALS")
 
+    if not user.is_active:
+        raise ValueError("USER_BLOCKED")
+
     if not verify_password(password, user.password_hash):
         raise ValueError("INVALID_CREDENTIALS")
 
     return user
+
 
 
 def login_and_get_token(db: Session, username: str, password: str) -> dict:

@@ -41,27 +41,36 @@ export default function ProductFormDialog({
 
   const [customCategory, setCustomCategory] = useState("");
   const [customType, setCustomType] = useState("");
+  const [typeMode, setTypeMode] = useState("select"); // "select" | "custom"
   const [error, setError] = useState("");
+
+  // helpers
+  const isKnownCategory = (c) => c === "clothing" || c === "equipment";
+  const typesForCategory = (cat) => (cat === "clothing" ? clothingTypes : equipmentTypes);
 
   useEffect(() => {
     const initialCategory = product?.category || "clothing";
-    const isKnown = initialCategory === "clothing" || initialCategory === "equipment";
+    const known = isKnownCategory(initialCategory);
+
+    const initialType = product?.type || "";
+    const knownType = known ? typesForCategory(initialCategory).includes(initialType) : false;
 
     setFormData({
       name: product?.name || "",
-      category: isKnown ? initialCategory : "__other__",
+      category: known ? initialCategory : "__other__",
       gender: product?.gender || "male",
-      type: product?.type || "",
+      type: knownType ? initialType : (known ? "" : ""),
       quantity: Number(product?.quantity ?? 0),
       availableQuantity: Number(product?.availableQuantity ?? 0),
       rentedQuantity: Number(product?.rentedQuantity ?? 0),
       imageurl: product?.imageurl || "",
     });
 
-    setCustomCategory(isKnown ? "" : initialCategory);
-    setCustomType(isKnown ? "" : (product?.type || ""));
+    setCustomCategory(known ? "" : initialCategory);
+    setTypeMode(knownType ? "select" : (initialType ? "custom" : "select"));
+    setCustomType(knownType ? "" : initialType);
     setError("");
-  }, [product, mode]);
+  }, [product, mode, clothingTypes, equipmentTypes]);
 
   useEffect(() => {
     if (!isAdd) return;
@@ -70,8 +79,6 @@ export default function ProductFormDialog({
       return { ...prev, availableQuantity: q, rentedQuantity: 0 };
     });
   }, [isAdd, formData.quantity]);
-
-  const types = formData.category === "clothing" ? clothingTypes : equipmentTypes;
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -125,26 +132,47 @@ export default function ProductFormDialog({
       return;
     }
 
-    setFormData((prev) => {
-      if (name === "category") {
+    // category switch
+    if (name === "category") {
+      setFormData((prev) => {
         if (value === "__other__") {
           setCustomCategory("");
-          setCustomType("");
+          // category other => type becomes custom by default (free)
+          setTypeMode("custom");
+          setCustomType(prev.type || "");
           return { ...prev, category: "__other__", type: "" };
         }
 
+        // normal category => reset type to select mode
         setCustomCategory("");
+        setTypeMode("select");
         setCustomType("");
+
         return {
           ...prev,
           category: value,
           type: "",
           gender: value === "clothing" ? prev.gender || "male" : prev.gender,
         };
-      }
+      });
 
-      return { ...prev, [name]: value };
-    });
+      return;
+    }
+
+    // type select handler
+    if (name === "type") {
+      if (value === "__other_type__") {
+        setTypeMode("custom");
+        setFormData((prev) => ({ ...prev, type: "" }));
+        return;
+      }
+      setTypeMode("select");
+      setCustomType("");
+      setFormData((prev) => ({ ...prev, type: value }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const validate = () => {
@@ -154,11 +182,14 @@ export default function ProductFormDialog({
       formData.category === "__other__" ? customCategory.trim() : formData.category;
     if (!finalCategory) return "Category is required";
 
+    // final type
     const finalType =
-      formData.category === "__other__" ? customType.trim() : formData.type;
+      typeMode === "custom" ? customType.trim() : formData.type;
     if (!finalType) return "Please select / enter a product type";
 
-    if (Number.isNaN(formData.quantity) || formData.quantity < 0) return "Quantity must be 0 or more";
+    if (Number.isNaN(formData.quantity) || formData.quantity < 0) {
+      return "Quantity must be 0 or more";
+    }
 
     if (!isAdd) {
       const q = Number(formData.quantity || 0);
@@ -184,8 +215,8 @@ export default function ProductFormDialog({
 
     const finalCategory =
       formData.category === "__other__" ? customCategory.trim() : formData.category;
-    const finalType =
-      formData.category === "__other__" ? customType.trim() : formData.type;
+
+    const finalType = typeMode === "custom" ? customType.trim() : formData.type;
 
     const productData = {
       name: formData.name.trim(),
@@ -193,7 +224,9 @@ export default function ProductFormDialog({
       ...(finalCategory === "clothing" ? { gender: formData.gender } : {}),
       type: finalType,
       quantity: Number(formData.quantity || 0),
-      availableQuantity: isAdd ? Number(formData.quantity || 0) : Number(formData.availableQuantity || 0),
+      availableQuantity: isAdd
+        ? Number(formData.quantity || 0)
+        : Number(formData.availableQuantity || 0),
       rentedQuantity: isAdd ? 0 : Number(formData.rentedQuantity || 0),
       imageurl: formData.imageurl || "",
     };
@@ -201,6 +234,7 @@ export default function ProductFormDialog({
     onConfirm(productData);
   };
 
+  // --- VIEW MODE UI ---
   if (isView) {
     return (
       <div
@@ -249,7 +283,9 @@ export default function ProductFormDialog({
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
                 <div className="flex items-center gap-2 text-gray-500"><Tag className="w-4 h-4" /> Type</div>
-                <div className="font-semibold text-gray-900">{formData.type}</div>
+                <div className="font-semibold text-gray-900">
+                  {typeMode === "custom" ? customType : formData.type}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
                 <div className="flex items-center gap-2 text-gray-500"><Users className="w-4 h-4" /> Gender</div>
@@ -272,6 +308,7 @@ export default function ProductFormDialog({
     );
   }
 
+  // --- ADD/EDIT MODE UI ---
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
@@ -300,6 +337,7 @@ export default function ProductFormDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Image URL */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Product Image URL
@@ -326,6 +364,7 @@ export default function ProductFormDialog({
             </div>
           </div>
 
+          {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Name <span className="text-rose-600">*</span>
@@ -341,6 +380,7 @@ export default function ProductFormDialog({
             />
           </div>
 
+          {/* Category + Gender */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -395,23 +435,37 @@ export default function ProductFormDialog({
             )}
           </div>
 
+          {/* Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Type <span className="text-rose-600">*</span>
             </label>
 
-            {formData.category === "__other__" ? (
-              <input
-                type="text"
-                value={customType}
-                onChange={(e) => {
-                  setCustomType(e.target.value);
-                  setError("");
-                }}
-                placeholder="Type a new product type..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+            {typeMode === "custom" ? (
+              <>
+                <input
+                  type="text"
+                  value={customType}
+                  onChange={(e) => {
+                    setCustomType(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Type a new product type..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTypeMode("select");
+                    setCustomType("");
+                    setFormData((prev) => ({ ...prev, type: "" }));
+                  }}
+                  className="mt-2 text-sm text-blue-600 hover:underline"
+                >
+                  Back to list
+                </button>
+              </>
             ) : (
               <select
                 name="type"
@@ -421,15 +475,17 @@ export default function ProductFormDialog({
                 required
               >
                 <option value="">Select Type</option>
-                {types.map((t) => (
+                {typesForCategory(formData.category === "__other__" ? "equipment" : formData.category).map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
                 ))}
+                <option value="__other_type__">Other / New type</option>
               </select>
             )}
           </div>
 
+          {/* Quantities */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
