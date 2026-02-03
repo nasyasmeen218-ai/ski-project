@@ -15,9 +15,10 @@ from app.schemas.order import OrderCreateRequest, OrderResponse, OrderItemRespon
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-def _ensure_not_admin(user: User):
-    if user.role == "admin":
-        raise HTTPException(status_code=403, detail="Admins cannot create orders")
+def _ensure_customer(user: User):
+    # ✅ רק לקוח יכול להשתמש בהזמנות
+    if user.role != "customer":
+        raise HTTPException(status_code=403, detail="Customers only")
 
 
 @router.post("", response_model=OrderResponse)
@@ -26,7 +27,7 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _ensure_not_admin(current_user)
+    _ensure_customer(current_user)
 
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain items")
@@ -40,25 +41,15 @@ def create_order(
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {str(p.id): p for p in products}
 
+    # stock check
     for it in payload.items:
         if it.product_id not in products_map:
             raise HTTPException(status_code=404, detail=f"Product not found: {it.product_id}")
 
         p = products_map[it.product_id]
-
-        # stock check: support both styles
         available = getattr(p, "available_quantity", None)
-        if available is None:
-            # some projects store availableQuantity under availableQuantity or availableQuantity-like
-            available = getattr(p, "availableQuantity", None)
-
-        total_qty = getattr(p, "quantity", None)
 
         if isinstance(available, int) and it.qty > available:
-            raise HTTPException(status_code=409, detail=f"Not enough stock for product {it.product_id}")
-
-        # fallback if only total quantity exists
-        if available is None and isinstance(total_qty, int) and it.qty > total_qty:
             raise HTTPException(status_code=409, detail=f"Not enough stock for product {it.product_id}")
 
     order = Order(customer_id=current_user.id, status="pending")
@@ -101,7 +92,7 @@ def my_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _ensure_not_admin(current_user)
+    _ensure_customer(current_user)
 
     orders = (
         db.query(Order)
@@ -132,4 +123,3 @@ def my_orders(
         )
 
     return result
-

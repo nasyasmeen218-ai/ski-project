@@ -17,7 +17,7 @@ class CartItemResponse(BaseModel):
     qty: int
     product_name: str
 
-    # עבור UI: "לא זמין" + הגבלת כמות
+    # NEW - כדי לפרונט יהיה קל
     available_qty: int
     is_available: bool
     max_qty_allowed: int
