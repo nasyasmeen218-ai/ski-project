@@ -93,3 +93,21 @@ def user_actions(
         }
         for l in logs
     ]
+
+@router.patch("/users/{user_id}/make-admin")
+def make_user_admin(
+    user_id: str, 
+    db: Session = Depends(get_db), 
+    admin=Depends(require_admin)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.role = "admin"
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {"message": "User promoted successfully", "role": user.role}

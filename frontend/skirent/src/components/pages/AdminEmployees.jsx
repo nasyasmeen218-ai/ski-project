@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   ShieldOff,
   ShieldCheck,
+  ShieldAlert, // אייקון חדש עבור הקידום
   Eye,
   RefreshCw,
   Search,
@@ -66,6 +67,35 @@ export default function AdminEmployees() {
       return matchesSearch && matchesStatus;
     });
   }, [users, search, statusFilter]);
+
+  const handlePromote = async (u) => {
+    const ok = window.confirm(`Promote ${u.username} to ADMIN?`);
+    if (!ok) return;
+
+    try {
+      setBusyId(u.id);
+        const response = await fetch(`http://127.0.0.1:8000/admin/users/${u.id}/make-admin`, {
+          method: 'PATCH',
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to promote");
+      }
+
+      toast.success("User promoted to Admin!");
+      await loadUsers(); 
+    } catch (e) {
+      console.error("Error promoting:", e);
+      toast.error(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const handleBlock = async (u) => {
     if (u.role === "admin") return;
@@ -135,7 +165,7 @@ export default function AdminEmployees() {
             Employee Management
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            Search employees, block/unblock, and view their actions.
+            Search employees, promote to admin, block/unblock, and view their actions.
           </p>
         </div>
 
@@ -231,7 +261,9 @@ export default function AdminEmployees() {
                   </td>
 
                   <td className="p-4">
-                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-800'
+                    }`}>
                       {u.role}
                     </span>
                   </td>
@@ -258,38 +290,52 @@ export default function AdminEmployees() {
                     {/* 👁 view actions */}
                     <button
                       onClick={() => openActions(u)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold"
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold inline-flex items-center"
                       type="button"
                       title="View actions"
                     >
-                      <Eye className="w-4 h-4 inline -mt-0.5 mr-1" />
+                      <Eye className="w-4 h-4 mr-1" />
                       View
                     </button>
 
                     {u.role !== "admin" && (
-                      u.is_active ? (
+                      <>
+                        {/* ✅ כפתור קידום חדש */}
                         <button
                           disabled={busyId === u.id}
-                          onClick={() => handleBlock(u)}
-                          className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50"
+                          onClick={() => handlePromote(u)}
+                          className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold disabled:opacity-50 inline-flex items-center transition-colors"
                           type="button"
-                          title="Block user"
+                          title="Promote to Admin"
                         >
-                          <ShieldOff className="w-4 h-4 inline -mt-0.5 mr-1" />
-                          Block
+                          <ShieldAlert className="w-4 h-4 mr-1" />
+                          Promote
                         </button>
-                      ) : (
-                        <button
-                          disabled={busyId === u.id}
-                          onClick={() => handleUnblock(u)}
-                          className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50"
-                          type="button"
-                          title="Unblock user"
-                        >
-                          <ShieldCheck className="w-4 h-4 inline -mt-0.5 mr-1" />
-                          Unblock
-                        </button>
-                      )
+
+                        {u.is_active ? (
+                          <button
+                            disabled={busyId === u.id}
+                            onClick={() => handleBlock(u)}
+                            className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
+                            type="button"
+                            title="Block user"
+                          >
+                            <ShieldOff className="w-4 h-4 mr-1" />
+                            Block
+                          </button>
+                        ) : (
+                          <button
+                            disabled={busyId === u.id}
+                            onClick={() => handleUnblock(u)}
+                            className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
+                            type="button"
+                            title="Unblock user"
+                          >
+                            <ShieldCheck className="w-4 h-4 mr-1" />
+                            Unblock
+                          </button>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>
@@ -321,23 +367,23 @@ export default function AdminEmployees() {
 
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               {loadingActions ? (
-                <div className="text-gray-500">Loading…</div>
+                <div className="text-gray-500 italic">Loading actions…</div>
               ) : actions.length === 0 ? (
-                <div className="text-gray-500">No actions</div>
+                <div className="text-gray-500">No actions recorded for this user.</div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-700 font-medium">
                     <tr>
-                      <th className="p-3 text-left">Action</th>
-                      <th className="p-3 text-left">Qty</th>
-                      <th className="p-3 text-left">Date</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Qty</th>
+                      <th className="p-3">Date</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100">
                     {actions.map((a) => (
-                      <tr key={a.id} className="border-t">
-                        <td className="p-3 font-semibold">{a.action}</td>
-                        <td className="p-3">{a.qty ?? 0}</td>
+                      <tr key={a.id} className="hover:bg-gray-50">
+                        <td className="p-3 font-semibold text-gray-800">{a.action}</td>
+                        <td className="p-3 text-gray-600">{a.qty ?? 0}</td>
                         <td className="p-3 text-gray-600">
                           {a.createdAt ? new Date(a.createdAt).toLocaleString() : "—"}
                         </td>
@@ -351,7 +397,7 @@ export default function AdminEmployees() {
             <div className="p-4 border-t text-right bg-gray-50">
               <button
                 onClick={closeActions}
-                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition"
+                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition font-medium"
                 type="button"
               >
                 Close
