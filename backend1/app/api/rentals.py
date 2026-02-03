@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.socket_manager import sio # ✅ ייבוא הסוקט (מוכן לשימוש עתידי)
+from app.socket_manager import sio 
 from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.rental import Rental
@@ -70,7 +70,6 @@ def list_rentals(
 
     rentals = q.order_by(Rental.created_at.desc()).limit(500).all()
 
-    # bring product names (optional nice-to-have)
     product_ids = list({r.product_id for r in rentals})
     products = db.query(Product).filter(Product.id.in_(product_ids)).all() if product_ids else []
     product_map = {p.id: p for p in products}

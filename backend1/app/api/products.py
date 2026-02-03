@@ -22,16 +22,16 @@ router = APIRouter()
 def to_product_out(p: Product) -> dict:
     """הופך את אובייקט המוצר מה-DB ל-JSON עבור הפרונטנד"""
     return {
-        "id": str(p.id),
-        "name": p.name,
-        "category": p.category,
-        "gender": p.gender,
-        "type": p.type,
-        "quantity": p.quantity,
-        "availableQuantity": p.available_quantity,
-        "rented_quantity": p.rented_quantity, # תיקון קטן לשם השדה אם צריך
-        "imageurl": p.imageurl,
-    }
+            "id": str(p.id),
+            "name": p.name,
+            "category": p.category,
+            "gender": p.gender,
+            "type": p.type,
+            "quantity": p.quantity,
+            "availableQuantity": p.available_quantity,
+            "rentedQuantity": p.rented_quantity,  # השם שהפרונטנד מחפש
+            "imageurl": p.imageurl,
+        }
 
 
 @router.get("")
@@ -191,6 +191,7 @@ async def take_product(
         raise HTTPException(status_code=409, detail="Not enough stock")
 
     product.available_quantity -= body.qty
+    product.quantity -= body.qty
 
     db.commit()
     db.refresh(product)
@@ -288,7 +289,6 @@ async def rent_product(
     )
 
     product_data = to_product_out(product)
-    # ✅ עדכון סוקט
     await sio.emit('product_updated', product_data)
     return product_data
 

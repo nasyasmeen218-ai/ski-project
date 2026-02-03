@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.security import require_admin
+from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User   # ✅ חדש – בשביל שם משתמש
@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("")
 def list_audit_logs(
-    admin=Depends(require_admin),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # JOIN ל־users כדי להביא שם משתמש

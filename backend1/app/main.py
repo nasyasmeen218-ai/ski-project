@@ -10,6 +10,8 @@ from app.api.products import router as products_router
 from app.api.rentals import router as rentals_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.admin_users import router as admin_users_router
+
+# ✅ הגדרות CORS ל-FastAPI (עבור בקשות HTTP רגילות כמו GET/POST)
 from app.api.orders import router as orders_router
 from app.api.cart import router as cart_router
 from app.api.cart import router as cart_router
@@ -31,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ אירועי סוקט
 # ✅ socket events
 @sio.event
 async def connect(sid, environ):
@@ -40,6 +43,7 @@ async def connect(sid, environ):
 async def disconnect(sid):
     print(f"❌ Client disconnected: {sid}")
 
+# ✅ Routers
 # ✅ routers
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(products_router, prefix="/products", tags=["products"])
@@ -59,5 +63,4 @@ app.include_router(admin_reports_router)
 def health():
     return {"ok": True}
 
-# ✅ mount socket.io (must be last)
 app.mount("/socket.io", socket_app)
