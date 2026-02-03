@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Filter, Package2 } from "lucide-react";
+import { Search, Filter, Package2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import ProductCard from "../layouts/layout/ProductCard";
@@ -36,6 +36,10 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [maxQuantity, setMaxQuantity] = useState(100);
   const [showFilter, setShowFilter] = useState(false);
 
+  // ✅ הוספת Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6; 
+
   const [rentalProduct, setRentalProduct] = useState(null);
 
   const toastOpts = { position: "top-center" };
@@ -64,9 +68,13 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     load();
   }, []);
 
+  // ✅ איפוס עמוד כשמשנים סינון
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      // ניקוי נתונים מה-DB למניעת בעיות התאמה
       const pCat = (product.category || "").trim().toLowerCase();
       const pGender = (product.gender || "").trim().toLowerCase();
       const pName = (product.name || "").toLowerCase();
@@ -75,12 +83,10 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         return false;
       }
 
-      // סינון קטגוריה גמיש
       if (selectedCategory !== "all" && pCat !== selectedCategory.toLowerCase()) {
         return false;
       }
 
-      // סינון מגדר גמיש
       if (
         selectedCategory === "clothing" &&
         selectedGender !== "all" &&
@@ -105,6 +111,13 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     minQuantity,
     maxQuantity,
   ]);
+
+  // ✅ לוגיקת החיתוך לעמודים
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage]);
 
   const getAvailableTypes = () => {
     if (selectedCategory === "all") return [];
@@ -180,21 +193,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
           await returnTakenProduct(product.id, 1);
           toast.success("Returned to stock successfully", toastOpts);
         }
-      }
-      await refreshProducts();
-    } catch (e) {
-      console.error(e);
-      toast.error(showApiError(e, "Return failed"), toastOpts);
-    }
-  };
-
-  const handleReturnTaken = async (productId) => {
-    try {
-      if (onReturn) {
-        await onReturn(productId, 1);
-      } else {
-        await returnTakenProduct(productId, 1);
-        toast.success("Returned successfully", toastOpts);
       }
       await refreshProducts();
     } catch (e) {
@@ -404,20 +402,57 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
         {isLoading ? (
           <div className="text-gray-500 py-10 text-center font-bold">Loading products...</div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                viewMode="employee"
-                onRental={() => handleRentalOpen(product)}
-                onTake={() => handleTake(product.id)}
-                onReturn={() => handleUniversalReturn(product)}
-                onReturnRented={() => handleReturnRented(product.id)}
-              />
-            ))}
-          </div>
+        ) : paginatedProducts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  viewMode="employee"
+                  onRental={() => handleRentalOpen(product)}
+                  onTake={() => handleTake(product.id)}
+                  onReturn={() => handleUniversalReturn(product)}
+                  onReturnRented={() => handleReturnRented(product.id)}
+                />
+              ))}
+            </div>
+
+            {/* ✅ הוספת כפתורי דפדוף (Pagination UI) */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-12 pb-8">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                      currentPage === i + 1 
+                        ? "bg-blue-600 text-white shadow-md" 
+                        : "bg-white text-gray-600 hover:bg-gray-50 border"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-12">
             <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
