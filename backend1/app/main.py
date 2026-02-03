@@ -16,6 +16,7 @@ from app.api.orders import router as orders_router
 from app.api.cart import router as cart_router
 from app.api.cart import router as cart_router
 from app.api.admin_reports import router as admin_reports_router
+from app.api.admin_reports import router as admin_reports_router
 
 app = FastAPI(title="SkiRent API")
 
@@ -55,6 +56,7 @@ app.include_router(admin_users_router)
 app.include_router(orders_router)
 app.include_router(cart_router)
 app.include_router(cart_router)
+app.include_router(admin_reports_router)
 app.include_router(admin_reports_router)
 
 
