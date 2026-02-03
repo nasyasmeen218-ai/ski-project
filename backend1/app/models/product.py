@@ -27,3 +27,11 @@ class Product(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def is_available(self) -> bool:
+        return self.available_quantity > 0
+
+    @property
+    def max_qty_allowed(self) -> int:
+        return max(self.available_quantity, 0)
