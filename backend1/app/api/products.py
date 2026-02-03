@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from app.socket_manager import sio # ✅ ייבוא הסוקט לניהול זמן אמת
+from app.socket_manager import sio  # ✅ ייבוא הסוקט לניהול זמן אמת
 
 from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
@@ -16,22 +16,28 @@ from app.models.rental import Rental
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(prefix="/products", tags=["products"])
 
 
 def to_product_out(p: Product) -> dict:
     """הופך את אובייקט המוצר מה-DB ל-JSON עבור הפרונטנד"""
+    available = int(p.available_quantity or 0)
+
     return {
-            "id": str(p.id),
-            "name": p.name,
-            "category": p.category,
-            "gender": p.gender,
-            "type": p.type,
-            "quantity": p.quantity,
-            "availableQuantity": p.available_quantity,
-            "rentedQuantity": p.rented_quantity,  # השם שהפרונטנד מחפש
-            "imageurl": p.imageurl,
-        }
+        "id": str(p.id),
+        "name": p.name,
+        "category": p.category,
+        "gender": p.gender,
+        "type": p.type,
+        "quantity": int(p.quantity or 0),
+        "availableQuantity": available,
+        "rentedQuantity": int(p.rented_quantity or 0),
+        "imageurl": p.imageurl,
+
+        # ✅ NEW: עבור UI של “לא זמין” + הגבלת כמות
+        "is_available": available > 0,
+        "max_qty_allowed": max(available, 0),
+    }
 
 
 @router.get("")
@@ -86,8 +92,7 @@ async def create_product(
     )
 
     product_data = to_product_out(product)
-    # ✅ עדכון האדמין בזמן אמת
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
 
 
@@ -98,7 +103,12 @@ async def update_product(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -124,6 +134,7 @@ async def update_product(
     new_available = product.available_quantity if payload.availableQuantity is None else payload.availableQuantity
     new_rented = product.rented_quantity if payload.rentedQuantity is None else payload.rentedQuantity
 
+    # ✅ שמירה על ה-check constraint
     if new_available + new_rented != new_quantity:
         raise HTTPException(status_code=400, detail="Total quantity must equal available + rented")
 
@@ -135,8 +146,7 @@ async def update_product(
     db.refresh(product)
 
     product_data = to_product_out(product)
-    # ✅ עדכון האדמין בזמן אמת
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
 
 
@@ -146,7 +156,12 @@ async def delete_product(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -161,10 +176,8 @@ async def delete_product(
     db.delete(product)
     db.commit()
 
-    # ✅ הודעה לאדמין להסיר את השורה מהטבלה
-    await sio.emit('product_updated', {"id": product_id, "action": "deleted"})
+    await sio.emit("product_updated", {"id": product_id, "action": "deleted"})
     return {"message": "deleted"}
-
 
 
 class QtyRequest(BaseModel):
@@ -183,15 +196,21 @@ async def take_product(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     if product.available_quantity < body.qty:
         raise HTTPException(status_code=409, detail="Not enough stock")
 
+    # ✅ IMPORTANT: בגלל CHECK CONSTRAINT quantity = available + rented
+    # אסור להוריד גם quantity וגם available. quantity נשאר קבוע.
     product.available_quantity -= body.qty
-    product.quantity -= body.qty
 
     db.commit()
     db.refresh(product)
@@ -206,8 +225,7 @@ async def take_product(
     )
 
     product_data = to_product_out(product)
-    # ✅ עדכון סוקט
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
 
 
@@ -218,7 +236,12 @@ async def return_taken_product(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -241,8 +264,7 @@ async def return_taken_product(
     )
 
     product_data = to_product_out(product)
-    # ✅ עדכון סוקט
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
 
 
@@ -253,7 +275,12 @@ async def rent_product(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -289,7 +316,7 @@ async def rent_product(
     )
 
     product_data = to_product_out(product)
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
 
 
@@ -300,7 +327,12 @@ async def return_rented_product(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    try:
+        pid = UUID(product_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid product_id format")
+
+    product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -343,6 +375,5 @@ async def return_rented_product(
     )
 
     product_data = to_product_out(product)
-    # ✅ עדכון סוקט
-    await sio.emit('product_updated', product_data)
+    await sio.emit("product_updated", product_data)
     return product_data
