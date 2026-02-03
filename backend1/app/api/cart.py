@@ -19,6 +19,7 @@ from app.schemas.cart import (
 )
 from app.schemas.order import OrderResponse, OrderItemResponse
 
+
 router = APIRouter(prefix="/cart", tags=["cart"])
 
 
@@ -27,19 +28,10 @@ def _ensure_not_admin(user: User):
         raise HTTPException(status_code=403, detail="Admins cannot use cart")
 
 
-def _availability_fields(p: Product, requested_qty: int | None = None):
-    """
-    מחזיר:
-    - available_qty: כמה יש בפועל
-    - is_available: האם ניתן להזמין בכלל
-    - max_qty_allowed: מה המקסימום המותר (0 אם אין מלאי)
-    """
-    available_qty = int(getattr(p, "available_quantity", 0) or 0)
+def _product_availability_payload(p: Product) -> tuple[int, bool, int]:
+    available_qty = int(p.available_quantity or 0)
     is_available = available_qty > 0
-    max_qty_allowed = available_qty if is_available else 0
-
-    # אם המשתמש כבר ביקש כמות, אפשר להחזיר גם "עד כמה מותר" ביחס לבקשה
-    # אבל בפועל אנחנו מחזירים תמיד לפי המלאי
+    max_qty_allowed = max(available_qty, 0)
     return available_qty, is_available, max_qty_allowed
 
 
@@ -58,9 +50,9 @@ def get_my_cart(
         .all()
     )
 
-    result: list[CartItemResponse] = []
+    result = []
     for (ci, p) in rows:
-        available_qty, is_available, max_qty_allowed = _availability_fields(p)
+        available_qty, is_available, max_qty_allowed = _product_availability_payload(p)
         result.append(
             CartItemResponse(
                 id=str(ci.id),
@@ -87,13 +79,11 @@ def add_to_cart(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    available_qty, is_available, max_qty_allowed = _availability_fields(product)
-
-    # ✅ אם אין מלאי בכלל — לא מאפשרים להוסיף לעגלה
-    if not is_available:
+    available_qty = int(product.available_quantity or 0)
+    if available_qty <= 0:
         raise HTTPException(status_code=409, detail="Product is not available")
 
-    # אם כבר קיים אותו מוצר בעגלה - upsert
+    # אם כבר קיים אותו מוצר בעגלה - upsert עם בדיקת מגבלה
     existing = (
         db.query(CartItem)
         .filter(
@@ -105,20 +95,20 @@ def add_to_cart(
         .first()
     )
 
-    new_qty = payload.qty + (existing.qty if existing else 0)
-
-    # ✅ לא מאפשרים לעבור את המלאי
-    if new_qty > max_qty_allowed:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Not enough stock. Max allowed: {max_qty_allowed}",
-        )
-
     if existing:
+        new_qty = existing.qty + payload.qty
+        if new_qty > available_qty:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Not enough stock. Requested total {new_qty}, available {available_qty}",
+            )
+
         existing.qty = new_qty
         db.add(existing)
         db.commit()
         db.refresh(existing)
+
+        available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
         return CartItemResponse(
             id=str(existing.id),
             product_id=str(existing.product_id),
@@ -127,6 +117,13 @@ def add_to_cart(
             available_qty=available_qty,
             is_available=is_available,
             max_qty_allowed=max_qty_allowed,
+        )
+
+    # מוצר חדש בעגלה
+    if payload.qty > available_qty:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Not enough stock. Requested {payload.qty}, available {available_qty}",
         )
 
     row = CartItem(
@@ -138,6 +135,7 @@ def add_to_cart(
     db.commit()
     db.refresh(row)
 
+    available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
     return CartItemResponse(
         id=str(row.id),
         product_id=str(row.product_id),
@@ -170,20 +168,22 @@ def update_cart_item_qty(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    available_qty, is_available, max_qty_allowed = _availability_fields(product)
-
-    # ✅ אם המוצר לא זמין — לא מאפשרים לשנות כמות
-    if not is_available:
+    available_qty = int(product.available_quantity or 0)
+    if available_qty <= 0:
         raise HTTPException(status_code=409, detail="Product is not available")
 
-    if payload.qty > max_qty_allowed:
-        raise HTTPException(status_code=409, detail=f"Not enough stock. Max allowed: {max_qty_allowed}")
+    if payload.qty > available_qty:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Not enough stock. Requested {payload.qty}, available {available_qty}",
+        )
 
     row.qty = payload.qty
     db.add(row)
     db.commit()
     db.refresh(row)
 
+    available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
     return CartItemResponse(
         id=str(row.id),
         product_id=str(row.product_id),
@@ -227,49 +227,39 @@ def checkout(
     if not cart_rows:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    product_ids = [r.product_id for r in cart_rows]
+    products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+    products_map = {p.id: p for p in products}
+
+    # בדיקת מלאי לפני ביצוע
+    for ci in cart_rows:
+        p = products_map.get(ci.product_id)
+        if not p:
+            raise HTTPException(status_code=404, detail=f"Product not found: {ci.product_id}")
+
+        available = int(p.available_quantity or 0)
+        if available <= 0:
+            raise HTTPException(status_code=409, detail=f"Product not available: {p.name}")
+
+        if ci.qty > available:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Not enough stock for {p.name}. Requested {ci.qty}, available {available}",
+            )
+
+    # יצירת הזמנה + עדכון מלאי + ניקוי עגלה
     try:
-        product_ids = [r.product_id for r in cart_rows]
-
-        # ✅ נועלים את המוצרים כדי שלא יהיו בעיות במקביל
-        products = (
-            db.query(Product)
-            .filter(Product.id.in_(product_ids))
-            .with_for_update()
-            .all()
-        )
-        products_map = {str(p.id): p for p in products}
-
-        # ✅ בדיקת מלאי לפני טרנזקציה
-        for ci in cart_rows:
-            p = products_map.get(str(ci.product_id))
-            if not p:
-                raise HTTPException(status_code=404, detail=f"Product not found: {ci.product_id}")
-
-            available_qty = int(getattr(p, "available_quantity", 0) or 0)
-            if available_qty <= 0:
-                raise HTTPException(status_code=409, detail=f"Product is not available: {p.name}")
-
-            if ci.qty > available_qty:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Not enough stock for {p.name}. Requested {ci.qty}, available {available_qty}",
-                )
-
-        # ✅ יצירת הזמנה
         order = Order(customer_id=current_user.id, status="pending")
         db.add(order)
         db.flush()
 
-        items_rows: list[OrderItem] = []
-
+        items_rows = []
         for ci in cart_rows:
-            p = products_map[str(ci.product_id)]
+            p = products_map[ci.product_id]
 
-            # ✅ כאן התיקון של ה-CHECK:
-            # quantity = available_quantity + rented_quantity
-            # אז לא נוגעים ב-quantity בכלל.
-            p.available_quantity = int(p.available_quantity) - ci.qty
-            p.rented_quantity = int(p.rented_quantity) + ci.qty
+            # חשוב! כדי לא לשבור את constraint: quantity = available + rented
+            p.available_quantity = int(p.available_quantity or 0) - ci.qty
+            p.rented_quantity = int(p.rented_quantity or 0) + ci.qty
 
             oi = OrderItem(
                 order_id=order.id,
@@ -280,8 +270,8 @@ def checkout(
             db.add(oi)
             items_rows.append(oi)
 
-        # ניקוי עגלה
-        db.query(CartItem).filter(CartItem.customer_id == current_user.id).delete()
+        for ci in cart_rows:
+            db.delete(ci)
 
         db.commit()
         db.refresh(order)
@@ -302,9 +292,6 @@ def checkout(
             ],
         )
 
-    except HTTPException:
-        db.rollback()
-        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Checkout failed: {str(e)}")

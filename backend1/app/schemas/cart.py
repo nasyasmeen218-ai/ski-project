@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from uuid import UUID
-from typing import Optional
 
 
 class CartAddRequest(BaseModel):
@@ -16,9 +15,9 @@ class CartItemResponse(BaseModel):
     id: str
     product_id: str
     qty: int
-    product_name: Optional[str] = None
+    product_name: str
 
-    # ✅ שדות זמינות למוצר (כדי להציג "לא זמין" ולחסום הוספה/עדכון)
+    # עבור UI: "לא זמין" + הגבלת כמות
     available_qty: int
     is_available: bool
     max_qty_allowed: int
