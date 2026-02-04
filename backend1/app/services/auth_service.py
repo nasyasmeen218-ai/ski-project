@@ -4,7 +4,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.models.user import User
 
 
-def create_user(db: Session, username: str, password: str) -> User:
+def create_user(db: Session, username: str, password: str, role: str = "customer") -> User:
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise ValueError("USERNAME_EXISTS")
@@ -12,8 +12,8 @@ def create_user(db: Session, username: str, password: str) -> User:
         user = User(
             username=username,
             password_hash=hash_password(password),
-            role="employee",
-            is_active=True,  # ✅ חדש (גם אם יש default ב-DB)
+            role=role,
+            is_active=True, 
         )
     except Exception as e:
         raise ValueError("INVALID_USER_DATA") from e

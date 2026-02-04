@@ -13,7 +13,9 @@ router = APIRouter()
 @router.post("/register")
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        create_user(db, payload.username, payload.password)
+        user_role = getattr(payload, 'role', 'customer') 
+        create_user(db, payload.username, payload.password, role=user_role)
+        
         return login_and_get_token(db, payload.username, payload.password)
     except ValueError as e:
         if str(e) == "USERNAME_EXISTS":

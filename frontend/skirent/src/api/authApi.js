@@ -7,8 +7,7 @@ export async function login(username, password) {
 }
 
 // ✅ REGISTER
-// אם הבאקאנד שלך יוצר תמיד employee, פשוט תמחקי את role מה-body
-export async function register(username, password, role = "employee") {
+export async function register(username, password, role = "customer") {
   const res = await api.post("/auth/register", { username, password, role });
   return res.data;
 }

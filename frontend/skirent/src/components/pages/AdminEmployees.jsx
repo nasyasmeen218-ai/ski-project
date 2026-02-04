@@ -298,45 +298,47 @@ export default function AdminEmployees() {
                       View
                     </button>
 
-                    {u.role !== "admin" && (
-                      <>
-                        {/* ✅ כפתור קידום חדש */}
+                  {u.role === "employee" && (
+                    <button
+                      disabled={busyId === u.id}
+                      onClick={() => handlePromote(u)}
+                      className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold disabled:opacity-50 inline-flex items-center transition-colors"
+                      type="button"
+                      title="Promote to Admin"
+                    >
+                      <ShieldAlert className="w-4 h-4 mr-1" />
+                      Promote
+                    </button>
+                  )}
+
+                  {/* מציג כפתור חסימה/שחרור לכל מי שאינו אדמין (גם עובד וגם לקוח) */}
+                  {u.role !== "admin" && (
+                    <>
+                      {u.is_active ? (
                         <button
                           disabled={busyId === u.id}
-                          onClick={() => handlePromote(u)}
-                          className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold disabled:opacity-50 inline-flex items-center transition-colors"
+                          onClick={() => handleBlock(u)}
+                          className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
                           type="button"
-                          title="Promote to Admin"
+                          title="Block user"
                         >
-                          <ShieldAlert className="w-4 h-4 mr-1" />
-                          Promote
+                          <ShieldOff className="w-4 h-4 mr-1" />
+                          Block
                         </button>
-
-                        {u.is_active ? (
-                          <button
-                            disabled={busyId === u.id}
-                            onClick={() => handleBlock(u)}
-                            className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
-                            type="button"
-                            title="Block user"
-                          >
-                            <ShieldOff className="w-4 h-4 mr-1" />
-                            Block
-                          </button>
-                        ) : (
-                          <button
-                            disabled={busyId === u.id}
-                            onClick={() => handleUnblock(u)}
-                            className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
-                            type="button"
-                            title="Unblock user"
-                          >
-                            <ShieldCheck className="w-4 h-4 mr-1" />
-                            Unblock
-                          </button>
-                        )}
-                      </>
-                    )}
+                      ) : (
+                        <button
+                          disabled={busyId === u.id}
+                          onClick={() => handleUnblock(u)}
+                          className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
+                          type="button"
+                          title="Unblock user"
+                        >
+                          <ShieldCheck className="w-4 h-4 mr-1" />
+                          Unblock
+                        </button>
+                      )}
+                    </>
+                  )}
                   </td>
                 </tr>
               ))}

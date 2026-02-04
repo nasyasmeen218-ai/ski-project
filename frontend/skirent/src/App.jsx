@@ -9,6 +9,7 @@ import EmployeeProducts from "./components/pages/EmployeeProducts";
 import AdminProducts from "./components/pages/AdminProducts";
 import AuditLogs from "./components/pages/AuditLogs";
 import AdminEmployees from "./components/pages/AdminEmployees";
+import CustomerProducts from "./components/pages/CustomerProducts"; 
 
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
@@ -17,14 +18,12 @@ function AppContent() {
 
   const [showRegister, setShowRegister] = useState(false);
   const [currentView, setCurrentView] = useState("products");
-
-  // כדי לרענן AdminProducts אחרי add product
   const [refreshProductsSignal, setRefreshProductsSignal] = useState(0);
 
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
   const isEmployee = useMemo(() => user?.role === "employee", [user]);
+  const isCustomer = useMemo(() => user?.role === "customer", [user]);
 
-  // ✅ אם עובד מנסה להגיע לטאב של admin, נחזיר אותו ל-products
   useEffect(() => {
     if (!isAdmin && (currentView === "audit" || currentView === "employees")) {
       setCurrentView("products");
@@ -39,7 +38,6 @@ function AppContent() {
     );
   }
 
-  // Not authenticated: Login/Register
   if (!isAuthenticated) {
     if (showRegister) {
       return (
@@ -72,17 +70,36 @@ function AppContent() {
       setCurrentView={setCurrentView}
       onLogout={logout}
       onProductCreated={() => setRefreshProductsSignal((n) => n + 1)}
+      onCartClick={() => setCurrentView("cart")}
+      onOrdersClick={() => setCurrentView("orders")}
     >
       {currentView === "products" && (
         <>
           {isEmployee && <EmployeeProducts />}
           {isAdmin && <AdminProducts refreshSignal={refreshProductsSignal} />}
+          {isCustomer && <CustomerProducts />}
         </>
       )}
 
-      {currentView === "audit" && isAdmin && <AuditLogs />}
+      {currentView === "cart" && isCustomer && (
+        <div className="p-6 text-center">
+          <h1 className="text-2xl font-bold mb-4">My Shopping Cart</h1>
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+             <p className="text-gray-500">Your cart is currently empty. Start shopping!</p>
+          </div>
+        </div>
+      )}
 
-      {/* ✅ NEW: Employees Management */}
+      {currentView === "orders" && isCustomer && (
+        <div className="p-6 text-center">
+          <h1 className="text-2xl font-bold mb-4">My Orders</h1>
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+             <p className="text-gray-500">You haven't placed any orders yet.</p>
+          </div>
+        </div>
+      )}
+
+      {currentView === "audit" && isAdmin && <AuditLogs />}
       {currentView === "employees" && isAdmin && <AdminEmployees />}
     </DashboardLayout>
   );
