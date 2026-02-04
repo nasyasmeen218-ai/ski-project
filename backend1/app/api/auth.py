@@ -1,48 +1,30 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest
+from app.schemas.auth_schemas import RegisterRequest, TokenResponse
 from app.services.auth_service import create_user, login_and_get_token
-from app.core.security import get_current_user
-from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register")
+@router.post("/register", status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        create_user(db, payload.username, payload.password)
-        return login_and_get_token(db, payload.username, payload.password)
+        user = create_user(db, payload.username, payload.password)
+        return {"message": "registered", "username": user.username}
     except ValueError as e:
-        if str(e) == "USERNAME_EXISTS":
-            raise HTTPException(status_code=409, detail="Username already exists")
-        raise HTTPException(status_code=400, detail="Registration failed")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login", response_model=TokenResponse)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    # Swagger Authorize שולח username/password כ-Form ולא JSON
     try:
-        return login_and_get_token(db, payload.username, payload.password)
+        return login_and_get_token(db, form_data.username, form_data.password)
     except ValueError as e:
-        code = str(e)
-
-        if code == "USER_BLOCKED":
-            raise HTTPException(status_code=403, detail="User is blocked")
-
-        if code == "INVALID_CREDENTIALS":
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-
-        # fallback
-        raise HTTPException(status_code=400, detail=code)
-
-
-@router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": str(current_user.id),
-        "username": current_user.username,
-        "role": current_user.role,
-        "is_active": bool(getattr(current_user, "is_active", True)),
-    }
+        raise HTTPException(status_code=401, detail=str(e))
