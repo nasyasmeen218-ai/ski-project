@@ -27,8 +27,11 @@ export default function CustomerProductCard({ product, onAddToCart, onRentClick 
       <div className="p-5 flex flex-col flex-grow">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-bold text-lg text-gray-800 leading-tight">{product.name}</h3>
-          <span className="text-blue-600 font-extrabold text-xl">₪{product.price}</span>
-        </div>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xl font-bold text-blue-600">
+              ₪{product.price}
+            </span>
+          </div>        </div>
 
         <p className="text-sm text-gray-500 mb-6 line-clamp-2 flex-grow">
           {product.description || "High-quality equipment suitable for all mountain conditions."}

@@ -14,6 +14,8 @@ export default function DashboardLayout({
   children,
   onLogout,
   onProductCreated,
+  onCartClick,   
+  onOrdersClick,
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
 
@@ -69,6 +71,8 @@ export default function DashboardLayout({
         onActivityClick={() => setShowActivityDrawer(true)}
         onAddProductClick={isAdmin ? handleAddProductClick : undefined}
         onLogoutClick={onLogout}
+        onCartClick={onCartClick}     
+        onOrdersClick={onOrdersClick}
       />
 
       <div className="bg-white border-b border-gray-200">
@@ -100,7 +104,6 @@ export default function DashboardLayout({
               </button>
             )}
 
-            {/* ✅ ניהול עובדים */}
             {isAdmin && (
               <button
                 onClick={() => setCurrentView("employees")}

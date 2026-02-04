@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-// אני משתמש כאן ב-API הקיים שלך שמושך מה-DB
 import { getProducts } from "../../api/productsApi"; 
 import CustomerProductCard from "../layouts/layout/CustomerProductCard";
 import { toast } from "sonner";
@@ -13,17 +12,23 @@ export default function CustomerProducts() {
   }, []);
 
   const fetchMyProducts = async () => {
-    try {
-      setLoading(true);
-      // כאן הבקשה הולכת ל-DB שלך (GET /products)
-      const data = await getProducts(); 
-      setProducts(data);
-    } catch (err) {
-      toast.error("Failed to fetch products from database");
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        setLoading(true);
+        const data = await getProducts(); 
+        console.log("Check this object in console:", data[0]);
+
+        const mappedData = data.map(p => ({
+          ...p,
+          price: p.price ?? p.unit_price ?? p.price_per_unit ?? p.daily_price ?? 0,
+          image: p.imageurl ? `http://127.0.0.1:8000/${p.imageurl}` : null
+        }));
+        setProducts(mappedData);
+      } catch (err) {
+        toast.error("Failed to fetch products");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const handleAddToCart = async (product) => {
     try {
@@ -37,10 +42,14 @@ export default function CustomerProducts() {
         body: JSON.stringify({ product_id: product.id, qty: 1 })
       });
 
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed");
+      }
+      
       toast.success(`${product.name} added to cart!`);
     } catch (err) {
-      toast.error("Out of stock or system error");
+      toast.error(err.message || "Out of stock or system error");
     }
   };
 
@@ -53,7 +62,7 @@ export default function CustomerProducts() {
           <CustomerProductCard 
             key={product.id} 
             product={product} 
-            onAddToCart={handleAddToCart}
+            onAddToCart={() => handleAddToCart(product)}
             onRentClick={(p) => toast.info(`Rental for ${p.name} coming soon`)}
           />
         ))}

@@ -59,6 +59,8 @@ def get_my_cart(
                 product_id=str(ci.product_id),
                 qty=ci.qty,
                 product_name=p.name,
+                price=float(p.price or 0.0),  # <--- הוספנו מחיר
+                imageurl=p.imageurl,          # <--- הוספנו תמונה
                 available_qty=available_qty,
                 is_available=is_available,
                 max_qty_allowed=max_qty_allowed,
@@ -83,7 +85,6 @@ def add_to_cart(
     if available_qty <= 0:
         raise HTTPException(status_code=409, detail="Product is not available")
 
-    # אם כבר קיים אותו מוצר בעגלה - upsert עם בדיקת מגבלה
     existing = (
         db.query(CartItem)
         .filter(
@@ -114,12 +115,13 @@ def add_to_cart(
             product_id=str(existing.product_id),
             qty=existing.qty,
             product_name=product.name,
+            price=float(product.price or 0.0), # <--- כאן
+            imageurl=product.imageurl,         # <--- וכאן
             available_qty=available_qty,
             is_available=is_available,
             max_qty_allowed=max_qty_allowed,
         )
 
-    # מוצר חדש בעגלה
     if payload.qty > available_qty:
         raise HTTPException(
             status_code=409,
@@ -141,6 +143,8 @@ def add_to_cart(
         product_id=str(row.product_id),
         qty=row.qty,
         product_name=product.name,
+        price=float(product.price or 0.0), # <--- כאן
+        imageurl=product.imageurl,         # <--- וכאן
         available_qty=available_qty,
         is_available=is_available,
         max_qty_allowed=max_qty_allowed,
@@ -189,6 +193,8 @@ def update_cart_item_qty(
         product_id=str(row.product_id),
         qty=row.qty,
         product_name=product.name,
+        price=float(product.price or 0.0), # <--- כאן
+        imageurl=product.imageurl,         # <--- וכאן
         available_qty=available_qty,
         is_available=is_available,
         max_qty_allowed=max_qty_allowed,
@@ -231,7 +237,6 @@ def checkout(
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {p.id: p for p in products}
 
-    # בדיקת מלאי לפני ביצוע
     for ci in cart_rows:
         p = products_map.get(ci.product_id)
         if not p:
@@ -247,7 +252,6 @@ def checkout(
                 detail=f"Not enough stock for {p.name}. Requested {ci.qty}, available {available}",
             )
 
-    # יצירת הזמנה + עדכון מלאי + ניקוי עגלה
     try:
         order = Order(customer_id=current_user.id, status="pending")
         db.add(order)
@@ -257,7 +261,6 @@ def checkout(
         for ci in cart_rows:
             p = products_map[ci.product_id]
 
-            # חשוב! כדי לא לשבור את constraint: quantity = available + rented
             p.available_quantity = int(p.available_quantity or 0) - ci.qty
             p.rented_quantity = int(p.rented_quantity or 0) + ci.qty
 
@@ -265,7 +268,7 @@ def checkout(
                 order_id=order.id,
                 product_id=ci.product_id,
                 qty=ci.qty,
-                price_at_order=None,
+                price_at_order=p.price, # <--- שומרים את המחיר האמיתי בהזמנה
             )
             db.add(oi)
             items_rows.append(oi)
@@ -286,7 +289,7 @@ def checkout(
                     id=str(r.id),
                     product_id=str(r.product_id),
                     qty=r.qty,
-                    price_at_order=float(r.price_at_order) if r.price_at_order is not None else None,
+                    price_at_order=float(r.price_at_order) if r.price_at_order is not None else 0.0,
                 )
                 for r in items_rows
             ],

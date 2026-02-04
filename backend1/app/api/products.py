@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from app.socket_manager import sio  # ✅ ייבוא הסוקט לניהול זמן אמת
-
+from app.socket_manager import sio  
 from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.product import Product
@@ -29,12 +28,11 @@ def to_product_out(p: Product) -> dict:
         "category": p.category,
         "gender": p.gender,
         "type": p.type,
+        "price": float(p.price or 0.0),
         "quantity": int(p.quantity or 0),
         "availableQuantity": available,
         "rentedQuantity": int(p.rented_quantity or 0),
         "imageurl": p.imageurl,
-
-        # ✅ NEW: עבור UI של “לא זמין” + הגבלת כמות
         "is_available": available > 0,
         "max_qty_allowed": max(available, 0),
     }
@@ -129,6 +127,8 @@ async def update_product(
         product.type = payload.type
     if payload.imageurl is not None:
         product.imageurl = payload.imageurl
+    if payload.price is not None:
+        product.price = payload.price
 
     new_quantity = product.quantity if payload.quantity is None else payload.quantity
     new_available = product.available_quantity if payload.availableQuantity is None else payload.availableQuantity
