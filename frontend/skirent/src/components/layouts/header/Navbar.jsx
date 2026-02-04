@@ -1,24 +1,26 @@
 import { useAuth } from "../../../context/AuthContext";
-import { LogOut, User, Activity } from "lucide-react";
+import { LogOut, User, Activity, ShoppingCart, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import logo from "../../../assets/logo.png";
 
-export default function Navbar({ onActivityClick, onAddProductClick, onLogoutClick }) {
+export default function Navbar({ onActivityClick, onAddProductClick, onLogoutClick, onCartClick, onOrdersClick }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleLogout = () => {
-    // קודם נסגור את התפריט
     setShowUserMenu(false);
-
-    // ✅ מקור האמת אצלך הוא App.jsx (token/localStorage)
     if (onLogoutClick) {
       onLogoutClick();
       return;
     }
-
-    // fallback (אם בעתיד תחליטי שה-AuthContext מנהל הכל)
     logout?.();
+  };
+
+  // פונקציה לעיצוב שם התפקיד להצגה
+  const getRoleDisplay = (role) => {
+    if (role === "admin") return "Administrator";
+    if (role === "employee") return "Employee";
+    return "Customer";
   };
 
   return (
@@ -30,6 +32,7 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
           </div>
 
           <div className="flex items-center gap-3">
+            {/* כפתור הוספת מוצר - רק לאדמין */}
             {user?.role === "admin" && onAddProductClick && (
               <button
                 onClick={onAddProductClick}
@@ -40,14 +43,41 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
               </button>
             )}
 
-            <button
-              onClick={onActivityClick}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
-              title="Recent Activities"
-              type="button"
-            >
-              <Activity className="w-6 h-6" />
-            </button>
+            {/* כפתור עגלה - רק ללקוח */}
+            {user?.role === "customer" && (
+              <button
+                onClick={onCartClick}
+                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all relative"
+                title="My Cart"
+                type="button"
+              >
+                <ShoppingCart className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* כפתור ההזמנות שלי - רק ללקוח */}
+            {user?.role === "customer" && (
+              <button
+                onClick={onOrdersClick}
+                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                title="My Orders"
+                type="button"
+              >
+                <ClipboardList className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* כפתור פעילויות - רק לאדמין ועובד */}
+            {(user?.role === "admin" || user?.role === "employee") && (
+              <button
+                onClick={onActivityClick}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
+                title="Recent Activities"
+                type="button"
+              >
+                <Activity className="w-6 h-6" />
+              </button>
+            )}
 
             <div className="relative">
               <button
@@ -78,7 +108,7 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
                         <p className="text-sm text-gray-600">{user.email}</p>
                       )}
                       <p className="text-xs text-gray-500 mt-1">
-                        Role: {user?.role === "admin" ? "Administrator" : "Employee"}
+                        Role: {getRoleDisplay(user?.role)}
                       </p>
                     </div>
 

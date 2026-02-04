@@ -14,8 +14,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
         user = create_user(db, payload.username, payload.password)
         return {"message": "registered", "username": user.username}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -23,8 +25,10 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    # Swagger Authorize שולח username/password כ-Form ולא JSON
+    # Swagger Authorize שולח username/password כ-Form-Data
     try:
         return login_and_get_token(db, form_data.username, form_data.password)
-    except ValueError as e:
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
