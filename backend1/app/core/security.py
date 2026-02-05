@@ -1,93 +1,90 @@
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from typing import Any, Optional
 
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-auth_scheme = HTTPBearer()
+SECRET_KEY = "CHANGE_ME"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# חשוב: בלי "/" בהתחלה כדי ש-Swagger יבנה את הבקשה נכון
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-# ---------- Password helpers ----------
-def hash_password(password: str) -> str:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    # bcrypt מגביל 72 bytes. אם תרצי הגנה קשיחה:
+    # password = password[:72]
     return pwd_context.hash(password)
 
 
-def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# ---------- JWT helpers ----------
-def create_access_token(subject: str, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings["JWT_EXPIRE_MINUTES"])
-    payload = {
-        "sub": subject,
-        "role": role,
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
-    }
-    return jwt.encode(payload, settings["JWT_SECRET"], algorithm=settings["JWT_ALGORITHM"])
-
-
-# ---------- Auth / Role guards ----------
 def get_current_user(
-    creds: HTTPAuthorizationCredentials = Depends(auth_scheme),
     db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
 ) -> User:
-    token = creds.credentials
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
     try:
-        payload = jwt.decode(token, settings["JWT_SECRET"], algorithms=[settings["JWT_ALGORITHM"]])
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str | None = payload.get("sub")
+        if not username:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
 
-    try:
-        user_uuid = UUID(str(user_id))
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user = db.query(User).filter(User.id == user_uuid).first()
+    user = db.query(User).filter(User.username == username).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise credentials_exception
 
-    if hasattr(user, "is_active") and user.is_active is False:
+    if not user.is_active:
         raise HTTPException(status_code=403, detail="User is inactive")
 
-    if getattr(user, "is_blocked_until", None):
+    # חסימה לפי זמן: אם יש תאריך והוא עדיין בעתיד -> חסום
+    if user.is_blocked_until is not None:
         now = datetime.now(timezone.utc)
-        if user.is_blocked_until and user.is_blocked_until > now:
-            raise HTTPException(status_code=403, detail="User is blocked")
+        blocked_until = user.is_blocked_until
 
-    # אם יש משתמשים ישנים בלי role
-    if not getattr(user, "role", None):
-        user.role = "customer"
+        # אם שמרת ב-DB בלי tzinfo, נניח UTC
+        if blocked_until.tzinfo is None:
+            blocked_until = blocked_until.replace(tzinfo=timezone.utc)
+
+        if blocked_until > now:
+            raise HTTPException(status_code=403, detail="User is blocked")
 
     return user
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return current_user
+def require_role(required_role: str):
+    def _checker(user: User = Depends(get_current_user)) -> User:
+        if user.role != required_role:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        return user
+    return _checker
 
 
-def require_employee(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("employee", "admin"):
-        raise HTTPException(status_code=403, detail="Employee only")
-    return current_user
-
-
-def require_customer(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "customer":
-        raise HTTPException(status_code=403, detail="Customers only")
-    return current_user
+require_admin = require_role("admin")
+require_customer = require_role("customer")
+require_employee = require_role("employee")
