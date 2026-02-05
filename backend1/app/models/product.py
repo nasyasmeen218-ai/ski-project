@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import Float, String, Integer, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,9 +17,9 @@ class Product(Base):
     category: Mapped[str] = mapped_column(String(20), nullable=False)
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
     type: Mapped[str] = mapped_column(String(60), nullable=False)
-
+    
     imageurl: Mapped[str | None] = mapped_column(String(500), nullable=True)
-
+    price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rented_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

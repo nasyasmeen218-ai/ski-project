@@ -10,7 +10,7 @@ class ProductCreate(BaseModel):
     category: str  # "clothing" | "equipment"
     gender: Optional[str] = None  # "male" | "female" | "unisex" | None
     type: str = Field(min_length=1, max_length=60)
-
+    price: float = Field(ge=0)
     quantity: int = Field(ge=0)
     availableQuantity: int = Field(ge=0)
     rentedQuantity: int = Field(ge=0)
@@ -23,7 +23,7 @@ class ProductUpdate(BaseModel):
     category: Optional[str] = None
     gender: Optional[str] = None
     type: Optional[str] = None
-
+    price: Optional[float] = Field(default=None, ge=0)
     quantity: Optional[int] = Field(default=None, ge=0)
     availableQuantity: Optional[int] = Field(default=None, ge=0)
     rentedQuantity: Optional[int] = Field(default=None, ge=0)
@@ -38,15 +38,13 @@ class ProductResponse(BaseModel):
     category: str
     gender: Optional[str] = None
     type: str
-
+    price: float
     quantity: int
     availableQuantity: int
     rentedQuantity: int
     imageurl: Optional[str] = None
-
     created_at: datetime
     updated_at: datetime
 
-    # NEW for UI
     is_available: bool
     max_qty_allowed: int

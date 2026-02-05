@@ -54,7 +54,23 @@ def get_my_cart(
         .all()
     )
 
-    return [_build_cart_item_response(ci, p) for (ci, p) in rows]
+    result = []
+    for (ci, p) in rows:
+        available_qty, is_available, max_qty_allowed = _product_availability_payload(p)
+        result.append(
+            CartItemResponse(
+                id=str(ci.id),
+                product_id=str(ci.product_id),
+                qty=ci.qty,
+                product_name=p.name,
+                price=float(p.price or 0.0),  # <--- הוספנו מחיר
+                imageurl=p.imageurl,          # <--- הוספנו תמונה
+                available_qty=available_qty,
+                is_available=is_available,
+                max_qty_allowed=max_qty_allowed,
+            )
+        )
+    return result
 
 
 @router.post("", response_model=CartItemResponse)
@@ -71,7 +87,6 @@ def add_to_cart(
     if available <= 0:
         raise HTTPException(status_code=409, detail="Product is not available")
 
-    # If already in cart -> upsert by increasing qty (but don't exceed available)
     existing = (
         db.query(CartItem)
         .filter(
@@ -94,10 +109,21 @@ def add_to_cart(
         db.add(existing)
         db.commit()
         db.refresh(existing)
-        return _build_cart_item_response(existing, product)
 
-    # New cart item
-    if payload.qty > available:
+        available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
+        return CartItemResponse(
+            id=str(existing.id),
+            product_id=str(existing.product_id),
+            qty=existing.qty,
+            product_name=product.name,
+            price=float(product.price or 0.0), # <--- כאן
+            imageurl=product.imageurl,         # <--- וכאן
+            available_qty=available_qty,
+            is_available=is_available,
+            max_qty_allowed=max_qty_allowed,
+        )
+
+    if payload.qty > available_qty:
         raise HTTPException(
             status_code=409,
             detail=f"Not enough stock. Requested {payload.qty}, available {available}",
@@ -111,7 +137,19 @@ def add_to_cart(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _build_cart_item_response(row, product)
+
+    available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
+    return CartItemResponse(
+        id=str(row.id),
+        product_id=str(row.product_id),
+        qty=row.qty,
+        product_name=product.name,
+        price=float(product.price or 0.0), # <--- כאן
+        imageurl=product.imageurl,         # <--- וכאן
+        available_qty=available_qty,
+        is_available=is_available,
+        max_qty_allowed=max_qty_allowed,
+    )
 
 
 @router.patch("/{cart_item_id}", response_model=CartItemResponse)
@@ -148,7 +186,18 @@ def update_cart_item_qty(
     db.commit()
     db.refresh(row)
 
-    return _build_cart_item_response(row, product)
+    available_qty, is_available, max_qty_allowed = _product_availability_payload(product)
+    return CartItemResponse(
+        id=str(row.id),
+        product_id=str(row.product_id),
+        qty=row.qty,
+        product_name=product.name,
+        price=float(product.price or 0.0), # <--- כאן
+        imageurl=product.imageurl,         # <--- וכאן
+        available_qty=available_qty,
+        is_available=is_available,
+        max_qty_allowed=max_qty_allowed,
+    )
 
 
 @router.delete("/{cart_item_id}")
@@ -184,7 +233,6 @@ def checkout(
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {p.id: p for p in products}
 
-    # 2) validate availability
     for ci in cart_rows:
         p = products_map.get(ci.product_id)
         if not p:
@@ -200,7 +248,6 @@ def checkout(
                 detail=f"Not enough stock for {p.name}. Requested {ci.qty}, available {available}",
             )
 
-    # 3) transaction: create order + items + update inventory + clear cart
     try:
         order = Order(customer_id=current_user.id, status="pending")
         db.add(order)
@@ -211,8 +258,6 @@ def checkout(
         for ci in cart_rows:
             p = products_map[ci.product_id]
 
-            # keep quantity consistent:
-            # quantity == available_quantity + rented_quantity
             p.available_quantity = int(p.available_quantity or 0) - ci.qty
             p.rented_quantity = int(p.rented_quantity or 0) + ci.qty
 
@@ -220,7 +265,7 @@ def checkout(
                 order_id=order.id,
                 product_id=ci.product_id,
                 qty=ci.qty,
-                price_at_order=None,
+                price_at_order=p.price, # <--- שומרים את המחיר האמיתי בהזמנה
             )
             db.add(oi)
             items_rows.append(oi)
@@ -241,7 +286,7 @@ def checkout(
                     id=str(r.id),
                     product_id=str(r.product_id),
                     qty=r.qty,
-                    price_at_order=float(r.price_at_order) if r.price_at_order is not None else None,
+                    price_at_order=float(r.price_at_order) if r.price_at_order is not None else 0.0,
                 )
                 for r in items_rows
             ],

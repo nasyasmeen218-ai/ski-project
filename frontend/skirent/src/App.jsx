@@ -10,7 +10,7 @@ import AdminProducts from "./components/pages/AdminProducts";
 import AuditLogs from "./components/pages/AuditLogs";
 import AdminEmployees from "./components/pages/AdminEmployees";
 import CustomerProducts from "./components/pages/CustomerProducts"; 
-
+import CartView from "./components/pages/CartView";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 function AppContent() {
@@ -82,12 +82,7 @@ function AppContent() {
       )}
 
       {currentView === "cart" && isCustomer && (
-        <div className="p-6 text-center">
-          <h1 className="text-2xl font-bold mb-4">My Shopping Cart</h1>
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-             <p className="text-gray-500">Your cart is currently empty. Start shopping!</p>
-          </div>
-        </div>
+        <CartView />
       )}
 
       {currentView === "orders" && isCustomer && (

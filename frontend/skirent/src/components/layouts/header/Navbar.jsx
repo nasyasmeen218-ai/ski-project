@@ -43,7 +43,6 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
               </button>
             )}
 
-            {/* כפתור עגלה - רק ללקוח */}
             {user?.role === "customer" && (
               <button
                 onClick={onCartClick}
@@ -55,7 +54,6 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
               </button>
             )}
 
-            {/* כפתור ההזמנות שלי - רק ללקוח */}
             {user?.role === "customer" && (
               <button
                 onClick={onOrdersClick}
@@ -67,7 +65,6 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
               </button>
             )}
 
-            {/* כפתור פעילויות - רק לאדמין ועובד */}
             {(user?.role === "admin" || user?.role === "employee") && (
               <button
                 onClick={onActivityClick}
