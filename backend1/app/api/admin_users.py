@@ -37,7 +37,6 @@ def block_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # לא חוסמים מנהל (מומלץ כדי לא לנעול את עצמכם)
     if user.role == "admin":
         raise HTTPException(status_code=400, detail="Cannot block admin user")
 
@@ -94,20 +93,19 @@ def user_actions(
         for l in logs
     ]
 
+
 @router.patch("/users/{user_id}/make-admin")
 def make_user_admin(
-    user_id: str, 
-    db: Session = Depends(get_db), 
-    admin=Depends(require_admin)
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     user = db.query(User).filter(User.id == user_id).first()
-    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     user.role = "admin"
-    
     db.commit()
     db.refresh(user)
-    
+
     return {"message": "User promoted successfully", "role": user.role}

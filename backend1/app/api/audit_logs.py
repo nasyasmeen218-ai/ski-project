@@ -6,10 +6,10 @@ from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User   # ✅ חדש – בשביל שם משתמש
 
-router = APIRouter()
+router = APIRouter(prefix="/audit-logs", tags=["Audit Logs"])
 
+@router.get("/")
 
-@router.get("")
 def list_audit_logs(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),

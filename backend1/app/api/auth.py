@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.auth_schemas import RegisterRequest, TokenResponse
 from app.services.auth_service import create_user, login_and_get_token
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -32,3 +34,6 @@ def login(
         raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
+@router.get("/me")
+def read_me(current_user: User = Depends(get_current_user)):
+    return current_user
