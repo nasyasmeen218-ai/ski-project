@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import socket from "../../socket"; 
+import socket from "../../socket";
 import ProductCard from "../layouts/layout/ProductCard";
 import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 

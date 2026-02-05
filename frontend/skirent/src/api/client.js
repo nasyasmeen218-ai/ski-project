@@ -1,23 +1,12 @@
 import axios from "axios";
 
-// מקור אמת אחד בלבד
-export const API_BASE_URL = "http://127.0.0.1:8000";
-
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: "http://localhost:8000",
+  withCredentials: false,
 });
 
-// attach token automatically
 api.interceptors.request.use((config) => {
-  try {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  } catch (e) {
-    console.warn("Cannot access localStorage token:", e);
-  }
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
-
-export default api;
