@@ -2,7 +2,10 @@ import { api } from "./client";
 
 // ✅ LOGIN
 export async function login(username, password) {
-  const res = await api.post("/auth/login", { username, password });
+  const body = new URLSearchParams({ username, password });
+  const res = await api.post("/auth/login", body, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   return res.data;
 }
 
