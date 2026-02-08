@@ -299,7 +299,7 @@ async def rent_product(
         qty=body.qty,
         start_date=start,
         end_date=end,
-        status="ACTIVE",
+        status="open",
     )
     db.add(rental)
 
@@ -360,7 +360,7 @@ async def return_rented_product(
     product.available_quantity += body.qty
 
     rental.returned_at = datetime.now(timezone.utc)
-    rental.status = "RETURNED"
+    rental.status = "returned"
 
     db.commit()
     db.refresh(product)

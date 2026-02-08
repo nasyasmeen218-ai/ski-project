@@ -1,59 +1,62 @@
-import React from 'react';
-import { ShoppingCart, Clock } from 'lucide-react';
+import { ShoppingCart, Calendar } from "lucide-react";
 
-export default function CustomerProductCard({ product, onAddToCart, onRentClick }) {
-  const isOutOfStock = product.available_quantity === 0 || product.availableQuantity === 0;
+export default function CustomerProductCard({
+  product,
+  onBuy,
+  onRent,
+  rentDisabled = false,
+}) {
+  const imgSrc =
+    product.image ||
+    product.imageurl ||
+    "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
 
   return (
-    <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-all flex flex-col h-full">
-      <div className="h-48 bg-gray-50 flex items-center justify-center relative">
-        {product.imageurl ? (
-          <img src={product.imageurl} alt={product.name} className="object-contain h-full w-full p-2" />
-        ) : (
-          <div className="text-gray-300 flex flex-col items-center">
-             <div className="w-12 h-12 border-2 border-gray-200 rounded-lg mb-2" />
-             <span className="text-xs">No Image</span>
-          </div>
-        )}
-        {isOutOfStock && (
-          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-            <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-              Out of Stock
-            </span>
-          </div>
-        )}
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+      <div className="relative h-52 w-full bg-gray-50 flex items-center justify-center p-4 border-b border-gray-100">
+        <img
+          src={imgSrc}
+          alt={product.name}
+          className="max-h-full max-w-full object-contain"
+          onError={(e) => {
+            e.currentTarget.src =
+              "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
+          }}
+        />
       </div>
 
-      <div className="p-5 flex flex-col flex-grow">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="font-bold text-lg text-gray-800 leading-tight">{product.name}</h3>
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xl font-bold text-blue-600">
-              ₪{product.price}
-            </span>
-          </div>        </div>
+      <div className="p-5 flex-1 flex flex-col">
+        <h3 className="text-base font-semibold text-gray-900 truncate">
+          {product.name}
+        </h3>
 
-        <p className="text-sm text-gray-500 mb-6 line-clamp-2 flex-grow">
-          {product.description || "High-quality equipment suitable for all mountain conditions."}
-        </p>
+        <p className="mt-2 text-blue-600 font-bold">₪{Number(product.price || 0)}</p>
 
-        <div className="grid grid-cols-2 gap-3 mt-auto">
+        <div className="mt-3 text-sm text-gray-600">
+          Available:{" "}
+          <span className="font-semibold">
+            {Number(product.availableQuantity ?? 0)}
+          </span>
+        </div>
+
+        <div className="mt-auto pt-4 grid grid-cols-2 gap-2">
           <button
-            onClick={() => onAddToCart(product)}
-            disabled={isOutOfStock}
-            className="flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 transition-all font-semibold shadow-sm active:scale-95 text-sm"
+            onClick={onBuy}
+            className="h-10 rounded-xl bg-gray-900 text-white text-sm font-bold hover:bg-black transition flex items-center justify-center gap-2"
+            type="button"
           >
             <ShoppingCart className="w-4 h-4" />
-            <span>Buy</span>
+            Buy
           </button>
 
           <button
-            onClick={() => onRentClick(product)}
-            disabled={isOutOfStock}
-            className="flex items-center justify-center gap-2 py-2.5 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 transition-all font-semibold active:scale-95 text-sm"
+            onClick={onRent}
+            disabled={rentDisabled}
+            className="h-10 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
           >
-            <Clock className="w-4 h-4" />
-            <span>Rent</span>
+            <Calendar className="w-4 h-4" />
+            Rent
           </button>
         </div>
       </div>

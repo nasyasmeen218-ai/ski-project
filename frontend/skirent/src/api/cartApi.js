@@ -1,7 +1,7 @@
 import api from "./client";
 
 // GET /cart
-export async function getCart() {
+export async function getMyCart() {
   const res = await api.get("/cart");
   return res.data;
 }
