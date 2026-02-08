@@ -6,11 +6,15 @@ import { getProducts } from "../../api/productsApi";
 import { addToCart } from "../../api/cartApi";
 
 import CustomerProductCard from "../layouts/layout/CustomerProductCard";
+import RentalDialog from "../layouts/layout/RentalDialog";
 
 function showApiError(err, fallback = "Something went wrong") {
-  if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
+  if (!err?.response)
+    return "Cannot reach server. Make sure backend is running (port 8000)";
+
   const status = err.response.status;
   const rawDetail = err?.response?.data?.detail ?? err?.response?.data?.message;
+
   const detail =
     typeof rawDetail === "string"
       ? rawDetail
@@ -29,6 +33,10 @@ function showApiError(err, fallback = "Something went wrong") {
 export default function CustomerProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ state לדיאלוג
+  const [rentDialogOpen, setRentDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const fetchMyProducts = async () => {
     try {
@@ -62,10 +70,33 @@ export default function CustomerProducts() {
     }
   };
 
-  const handleRent = async (product, days = 2, qty = 1) => {
+  // ✅ פתיחת דיאלוג במקום rent אוטומטי
+  const openRentDialog = (product) => {
+    setSelectedProduct(product);
+    setRentDialogOpen(true);
+  };
+
+  const closeRentDialog = () => {
+    setRentDialogOpen(false);
+    setSelectedProduct(null);
+  };
+
+  // ✅ כאן מתבצע ה-Rent בפועל עם הערכים שהמשתמש בחר
+  const handleConfirmRent = async ({ days, qty, startDate }) => {
+    const product = selectedProduct;
+    if (!product) return;
+
     try {
-      await api.post(`/products/${product.id}/rent`, { qty, days });
+      // אם הבאקאנד שלך תומך ב-start_date זה מצוין.
+      // אם לא, אפשר למחוק את השורה start_date זמנית.
+      await api.post(`/products/${product.id}/rent`, {
+        qty,
+        days,
+        start_date: startDate,
+      });
+
       toast.success(`${product.name} rented for ${days} days`);
+      closeRentDialog();
       await fetchMyProducts();
     } catch (err) {
       toast.error(showApiError(err, "Rental failed"));
@@ -84,11 +115,20 @@ export default function CustomerProducts() {
             key={product.id}
             product={product}
             onBuy={() => handleAddToCart(product)}
-            onRent={() => handleRent(product, 2, 1)}
+            onRent={() => openRentDialog(product)}   // ✅ במקום 2,1 קבוע
             rentDisabled={Number(product.availableQuantity ?? 0) <= 0}
           />
         ))}
       </div>
+
+      {/* ✅ הדיאלוג עצמו */}
+      {rentDialogOpen && selectedProduct && (
+        <RentalDialog
+          product={selectedProduct}
+          onClose={closeRentDialog}
+          onConfirm={handleConfirmRent} // ✅ מקבל {days, qty, startDate}
+        />
+      )}
     </div>
   );
 }

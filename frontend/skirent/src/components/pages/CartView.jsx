@@ -10,7 +10,10 @@ import {
 } from "../../api/cartApi";
 
 function showApiError(err, fallback = "Something went wrong") {
-  if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
+  // אם לא הגיע response בכלל -> תקלה רשת/שרת לא זמין
+  if (!err?.response)
+    return "Cannot reach server. Make sure backend is running (port 8000)";
+
   const status = err.response.status;
   const rawDetail = err?.response?.data?.detail ?? err?.response?.data?.message;
   const detail =
@@ -21,12 +24,28 @@ function showApiError(err, fallback = "Something went wrong") {
       : "";
 
   if (status === 401) return "Unauthorized (please login again)";
-  if (status === 403) return "Forbidden";
+  if (status === 403) return "Forbidden (role not allowed)";
   if (status === 404) return "Not found";
   if (status === 409) return detail || "Conflict";
   if (status === 422) return detail || "Invalid request";
   if (status >= 500) return "Server error. Try again";
   return detail || fallback;
+}
+
+// Promise timeout כדי שלא ניתקע על Loading לנצח
+function withTimeout(promise, ms = 8000) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Request timeout")), ms);
+    promise
+      .then((v) => {
+        clearTimeout(t);
+        resolve(v);
+      })
+      .catch((e) => {
+        clearTimeout(t);
+        reject(e);
+      });
+  });
 }
 
 export default function CartView() {
@@ -35,26 +54,54 @@ export default function CartView() {
   const [checkingOut, setCheckingOut] = useState(false);
 
   const fetchCart = async () => {
+    console.log("CartView -> fetchCart start");
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const data = await getMyCart();
+      // timeout כדי לא להיתקע
+      const data = await withTimeout(getMyCart(), 8000);
+      console.log("CartView -> fetchCart success", data);
       setCartItems(Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error("CartView -> fetchCart error", err);
+
+      // אם זה timeout
+      if (String(err?.message || "").toLowerCase().includes("timeout")) {
+        toast.error("Cart request timed out. Check backend / network.");
+        setCartItems([]);
+        return;
+      }
+
+      // אם זה 401/403 - ננקה token כדי לא להישאר בלופ
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("username");
+        toast.error(showApiError(err), { duration: 4000 });
+        toast.message("Please login again.");
+        setCartItems([]);
+        return;
+      }
+
       toast.error(showApiError(err, "Failed to load cart items"));
       setCartItems([]);
     } finally {
+      console.log("CartView -> fetchCart finally");
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log("CartView mounted");
     fetchCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const changeQty = async (cartItemId, newQty) => {
     if (newQty < 1) return;
     try {
-      await updateCartItemQty(cartItemId, newQty);
+      await withTimeout(updateCartItemQty(cartItemId, newQty), 8000);
       await fetchCart();
     } catch (err) {
       toast.error(showApiError(err, "Could not update quantity"));
@@ -65,7 +112,7 @@ export default function CartView() {
     if (!window.confirm("Are you sure you want to remove this item?")) return;
 
     try {
-      await deleteCartItem(cartItemId);
+      await withTimeout(deleteCartItem(cartItemId), 8000);
       toast.success("Item removed");
       await fetchCart();
     } catch (err) {
@@ -85,8 +132,12 @@ export default function CartView() {
 
     try {
       setCheckingOut(true);
-      await checkoutApi();
-      toast.success("Checkout completed!");
+
+      const order = await withTimeout(checkoutApi(), 15000);
+      toast.success(`Checkout completed! Order #${order?.id ?? ""}`);
+
+      // UX: לנקות מיידית
+      setCartItems([]);
       await fetchCart();
     } catch (err) {
       toast.error(showApiError(err, "Checkout failed"));
@@ -95,7 +146,9 @@ export default function CartView() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading your cart...</div>;
+  if (loading) {
+    return <div className="p-10 text-center">Loading your cart...</div>;
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -109,7 +162,9 @@ export default function CartView() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Shopping Cart</h1>
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">
+        My Shopping Cart
+      </h1>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <ul className="divide-y divide-gray-100">
@@ -136,8 +191,12 @@ export default function CartView() {
               </div>
 
               <div className="flex-grow">
-                <h3 className="font-bold text-lg text-gray-800">{item.product_name}</h3>
-                <p className="text-blue-600 font-semibold">₪{Number(item.price || 0).toFixed(2)}</p>
+                <h3 className="font-bold text-lg text-gray-800">
+                  {item.product_name}
+                </h3>
+                <p className="text-blue-600 font-semibold">
+                  ₪{Number(item.price || 0).toFixed(2)}
+                </p>
               </div>
 
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
@@ -149,7 +208,9 @@ export default function CartView() {
                   <Minus className="w-4 h-4" />
                 </button>
 
-                <span className="font-bold w-6 text-center">{Number(item.qty || 0)}</span>
+                <span className="font-bold w-6 text-center">
+                  {Number(item.qty || 0)}
+                </span>
 
                 <button
                   onClick={() => changeQty(item.id, Number(item.qty || 0) + 1)}
@@ -174,7 +235,9 @@ export default function CartView() {
         <div className="p-6 bg-gray-50 border-t border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <span className="text-gray-600 font-medium">Total Amount:</span>
-            <span className="text-3xl font-black text-gray-900">₪{totalPrice.toFixed(2)}</span>
+            <span className="text-3xl font-black text-gray-900">
+              ₪{totalPrice.toFixed(2)}
+            </span>
           </div>
 
           <button
@@ -183,7 +246,7 @@ export default function CartView() {
             className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             type="button"
           >
-            Proceed to Checkout
+            {checkingOut ? "Processing..." : "Proceed to Checkout"}
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

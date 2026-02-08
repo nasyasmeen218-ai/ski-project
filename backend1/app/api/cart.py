@@ -51,7 +51,7 @@ def get_my_cart(
             CartItemResponse(
                 id=str(ci.id),
                 product_id=str(ci.product_id),
-                qty=ci.qty,
+                qty=int(ci.qty or 0),
                 product_name=p.name,
                 price=float(p.price or 0.0),
                 imageurl=p.imageurl,
@@ -89,7 +89,7 @@ def add_to_cart(
     )
 
     if existing:
-        new_qty = existing.qty + payload.qty
+        new_qty = int(existing.qty or 0) + int(payload.qty or 0)
         if new_qty > available:
             raise HTTPException(
                 status_code=409,
@@ -104,7 +104,7 @@ def add_to_cart(
         return CartItemResponse(
             id=str(existing.id),
             product_id=str(existing.product_id),
-            qty=existing.qty,
+            qty=int(existing.qty or 0),
             product_name=product.name,
             price=float(product.price or 0.0),
             imageurl=product.imageurl,
@@ -113,7 +113,6 @@ def add_to_cart(
             max_qty_allowed=max_qty_allowed,
         )
 
-    # ✅ FIX: היה כאן available_qty לא מוגדר
     if payload.qty > available:
         raise HTTPException(
             status_code=409,
@@ -133,7 +132,7 @@ def add_to_cart(
     return CartItemResponse(
         id=str(row.id),
         product_id=str(row.product_id),
-        qty=row.qty,
+        qty=int(row.qty or 0),
         product_name=product.name,
         price=float(product.price or 0.0),
         imageurl=product.imageurl,
@@ -181,7 +180,7 @@ def update_cart_item_qty(
     return CartItemResponse(
         id=str(row.id),
         product_id=str(row.product_id),
-        qty=row.qty,
+        qty=int(row.qty or 0),
         product_name=product.name,
         price=float(product.price or 0.0),
         imageurl=product.imageurl,
@@ -223,6 +222,7 @@ def checkout(
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {p.id: p for p in products}
 
+    # Validate stock
     for ci in cart_rows:
         p = products_map.get(ci.product_id)
         if not p:
@@ -232,7 +232,7 @@ def checkout(
         if available <= 0:
             raise HTTPException(status_code=409, detail=f"Product is not available: {p.name}")
 
-        if ci.qty > available:
+        if int(ci.qty or 0) > available:
             raise HTTPException(
                 status_code=409,
                 detail=f"Not enough stock for {p.name}. Requested {ci.qty}, available {available}",
@@ -241,26 +241,27 @@ def checkout(
     try:
         order = Order(customer_id=current_user.id, status="pending")
         db.add(order)
-        db.flush()
+        db.flush()  # get order.id
 
         items_rows: list[OrderItem] = []
 
         for ci in cart_rows:
             p = products_map[ci.product_id]
 
-            # ✅ quantity constraint: quantity stays constant
-            p.available_quantity = int(p.available_quantity or 0) - ci.qty
-            p.rented_quantity = int(p.rented_quantity or 0) + ci.qty
+            # Update quantities
+            p.available_quantity = int(p.available_quantity or 0) - int(ci.qty or 0)
+            p.rented_quantity = int(p.rented_quantity or 0) + int(ci.qty or 0)
 
             oi = OrderItem(
                 order_id=order.id,
                 product_id=ci.product_id,
-                qty=ci.qty,
+                qty=int(ci.qty or 0),
                 price_at_order=p.price,
             )
             db.add(oi)
             items_rows.append(oi)
 
+        # Clear cart
         for ci in cart_rows:
             db.delete(ci)
 
@@ -276,7 +277,7 @@ def checkout(
                 OrderItemResponse(
                     id=str(r.id),
                     product_id=str(r.product_id),
-                    qty=r.qty,
+                    qty=int(r.qty or 0),
                     price_at_order=float(r.price_at_order) if r.price_at_order is not None else 0.0,
                 )
                 for r in items_rows

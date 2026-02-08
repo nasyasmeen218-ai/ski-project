@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, Calendar } from "lucide-react";
 
 export default function RentalDialog({ product, onConfirm, onClose }) {
@@ -8,23 +8,33 @@ export default function RentalDialog({ product, onConfirm, onClose }) {
     new Date().toISOString().split("T")[0]
   );
 
-  const calculateEndDate = () => {
+  const maxQty = Number(product?.availableQuantity ?? 0);
+
+  const endDateLabel = useMemo(() => {
     const end = new Date(startDate);
-    end.setDate(end.getDate() + rentalDays);
+    end.setDate(end.getDate() + Number(rentalDays || 0));
     return end.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-  };
+  }, [startDate, rentalDays]);
 
   const handleConfirm = () => {
-    if (rentalDays < 1) return;
-    if (qty < 1) return;
-    onConfirm?.(rentalDays, qty);
-  };
+    const days = Number(rentalDays);
+    const q = Number(qty);
 
-  const maxQty = Number(product?.availableQuantity ?? 0);
+    if (!Number.isFinite(days) || days < 1) return;
+    if (!Number.isFinite(q) || q < 1) return;
+    if (maxQty <= 0) return;
+    if (q > maxQty) return;
+
+    onConfirm?.({
+      startDate,        // "YYYY-MM-DD"
+      days,             // number
+      qty: q,           // number
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -32,7 +42,11 @@ export default function RentalDialog({ product, onConfirm, onClose }) {
         <div className="bg-blue-600 p-6 text-white rounded-t-lg">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-bold">Rent Product</h2>
-            <button onClick={onClose} className="text-white/80 hover:text-white" type="button">
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white"
+              type="button"
+            >
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -103,7 +117,7 @@ export default function RentalDialog({ product, onConfirm, onClose }) {
               <div className="text-sm text-gray-600">Estimated Return Date:</div>
               <div className="font-bold text-blue-600 flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                {calculateEndDate()}
+                {endDateLabel}
               </div>
             </div>
           </div>
