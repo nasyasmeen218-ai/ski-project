@@ -1,20 +1,19 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user, require_admin
+from app.core.security import require_admin
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
-from app.models.user import User   # ✅ חדש – בשביל שם משתמש
+from app.models.user import User
 
-router = APIRouter(prefix="/audit-logs", tags=["Audit Logs"])
+router = APIRouter(prefix="/audit-logs", tags=["audit-logs"])
+
 
 @router.get("/")
-
 def list_audit_logs(
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    # JOIN ל־users כדי להביא שם משתמש
     rows = (
         db.query(AuditLog, User.username)
         .join(User, User.id == AuditLog.actor_user_id)
@@ -27,7 +26,7 @@ def list_audit_logs(
         {
             "id": str(log.id),
             "actorUserId": str(log.actor_user_id),
-            "actorUserName": username,   # ✅ זה מה שהפרונט צריך
+            "actorUserName": username,
             "productId": str(log.product_id) if log.product_id else None,
             "action": log.action,
             "qty": log.qty,

@@ -55,7 +55,6 @@ def report_kpi(
 
     orders_q = db.query(Order.id, Order.customer_id).select_from(Order)
     orders_q = _apply_date_filter(orders_q, Order.created_at, f, t)
-
     orders_sub = orders_q.subquery()
 
     orders_count = db.query(func.count(orders_sub.c.id)).scalar() or 0
@@ -162,7 +161,6 @@ def customers_report(
     items_q = _apply_date_filter(items_q, Order.created_at, f, t)
     items_q = items_q.group_by(Order.customer_id).subquery()
 
-    # join with user
     q = (
         db.query(
             User.id.label("customer_id"),

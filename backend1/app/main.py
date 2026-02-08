@@ -2,11 +2,14 @@
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 
+from app.socket_manager import sio
+
 from app.api.auth import router as auth_router
 from app.api.products import router as products_router
-from app.socket_manager import sio
+from app.api.rentals import router as rentals_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.admin_users import router as admin_users_router
+from app.api.admin_reports import router as admin_reports_router
 
 fastapi_app = FastAPI(title="SkiRent API")
 
@@ -20,14 +23,16 @@ fastapi_app.add_middleware(
 
 fastapi_app.include_router(auth_router)
 fastapi_app.include_router(products_router)
+fastapi_app.include_router(rentals_router)
 fastapi_app.include_router(audit_logs_router)
 fastapi_app.include_router(admin_users_router)
+fastapi_app.include_router(admin_reports_router)
 
 @fastapi_app.get("/")
 def root():
     return {"status": "ok"}
 
-# עוטפים את FastAPI עם Socket.IO
+# Socket.IO wrapper ASGI app (THIS is what uvicorn should run)
 app = socketio.ASGIApp(
     sio,
     other_asgi_app=fastapi_app,

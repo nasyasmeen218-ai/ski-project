@@ -1,8 +1,8 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:8000", {
-  path: "/socket.io",
-  autoConnect: true,
+export const socket = io("http://localhost:8000", {
+  path: "/socket.io",          // ✅ תואם ל-main.py
+  transports: ["polling", "websocket"],
 });
 
 socket.on("connect", () => console.log("✅ socket connected", socket.id));
