@@ -13,6 +13,7 @@ import {
   returnRentedProduct,
 } from "../../api/productsApi";
 
+
 function showApiError(err, fallback = "Something went wrong") {
   if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
   const status = err.response.status;
