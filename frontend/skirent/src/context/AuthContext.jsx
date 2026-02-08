@@ -1,15 +1,11 @@
+// src/context/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { me as meApi } from "../api/authApi";
 
 const AuthContext = createContext(null);
 
 function safeGetToken() {
-  try {
-    return localStorage.getItem("token");
-  } catch (e) {
-    console.warn("Cannot access localStorage token:", e);
-    return null;
-  }
+  try { return localStorage.getItem("token"); } catch { return null; }
 }
 
 function safeClearAuthStorage() {
@@ -17,9 +13,7 @@ function safeClearAuthStorage() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
-  } catch (e) {
-    console.warn("Cannot access localStorage:", e);
-  }
+  } catch {}
 }
 
 export function AuthProvider({ children }) {
@@ -27,11 +21,9 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  // ✅ On app start (or refresh): if token exists -> fetch /auth/me
   useEffect(() => {
     const boot = async () => {
       const token = safeGetToken();
-
       if (!token) {
         setUser(null);
         setIsAuthenticated(false);
@@ -41,18 +33,14 @@ export function AuthProvider({ children }) {
 
       try {
         setIsLoadingUser(true);
-        const me = await meApi(); // uses axios interceptor Authorization Bearer token
+        const me = await meApi();
         setUser(me);
         setIsAuthenticated(true);
-
-        // optional: keep localStorage in sync (not source of truth)
         try {
           localStorage.setItem("role", me.role);
           localStorage.setItem("username", me.username);
         } catch {}
       } catch (e) {
-        console.error("Failed to load /auth/me:", e);
-        // token invalid/expired -> clear
         safeClearAuthStorage();
         setUser(null);
         setIsAuthenticated(false);
@@ -69,8 +57,6 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated,
       isLoadingUser,
-      // login is handled by Login.jsx saving token.
-      // This is for syncing user after login without refresh:
       refreshMe: async () => {
         try {
           const token = safeGetToken();
@@ -87,8 +73,7 @@ export function AuthProvider({ children }) {
             localStorage.setItem("username", me.username);
           } catch {}
           return me;
-        } catch (e) {
-          console.error("refreshMe failed:", e);
+        } catch {
           safeClearAuthStorage();
           setUser(null);
           setIsAuthenticated(false);

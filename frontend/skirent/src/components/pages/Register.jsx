@@ -4,16 +4,21 @@ import { register as registerApi } from "../../api/authApi";
 import { User, Lock, ArrowLeft, UserPlus, Loader2 } from "lucide-react";
 
 import logoImg from "../../assets/logo.png";
-import bgImage from "../../assets/ski.png"; 
+import bgImage from "../../assets/ski.png";
 
 function showApiError(err, fallback = "Something went wrong") {
-  // הדפסת השגיאה המלאה ל-Console כדי שתוכלי לראות אם זה CORS או Error אחר
   console.error("Registration Error Details:", err);
-  
+
   if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
   const status = err.response.status;
+
   const rawDetail = err?.response?.data?.detail ?? err?.response?.data?.message;
-  let detailText = typeof rawDetail === "string" ? rawDetail : Array.isArray(rawDetail) ? rawDetail.map((x) => x?.msg).join(", ") : "";
+  const detailText =
+    typeof rawDetail === "string"
+      ? rawDetail
+      : Array.isArray(rawDetail)
+        ? rawDetail.map((x) => x?.msg).join(", ")
+        : "";
 
   if (status === 409) return "Username already exists";
   if (status === 422) return detailText || "Please check the form fields";
@@ -28,6 +33,7 @@ export default function Register({ onBackClick, onSuccess }) {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+
     if (!username.trim() || !password) {
       toast.error("Please enter username and password");
       return;
@@ -35,9 +41,10 @@ export default function Register({ onBackClick, onSuccess }) {
 
     try {
       setLoading(true);
-      // שינוי חשוב: אנחנו מעבירים במפורש "customer" כדי להתאים ל-Backend
-      await registerApi(username.trim(), password, "customer");
-      
+
+      // ✅ מתואם לבאקאנד: שולחים רק username + password
+      await registerApi(username.trim(), password);
+
       toast.success("Account created successfully!");
       onSuccess?.();
     } catch (err) {
@@ -48,20 +55,21 @@ export default function Register({ onBackClick, onSuccess }) {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat px-4 relative"
       style={{ backgroundImage: `url(${bgImage})` }}
     >
       <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px]"></div>
 
       <div className="relative w-full max-w-md bg-white/85 backdrop-blur-md rounded-3xl shadow-2xl border border-white/40 p-8">
-        
         <div className="flex flex-col items-center mb-8">
           <div className="w-20 h-20 bg-blue-600 rounded-2xl shadow-lg flex items-center justify-center mb-4 overflow-hidden">
-              <img src={logoImg} alt="Logo" className="w-12 h-12 object-contain" />
+            <img src={logoImg} alt="Logo" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Join SkiRent</h1>
-          <p className="text-slate-600 mt-1 font-medium text-sm text-center">Create your customer account</p>
+          <p className="text-slate-600 mt-1 font-medium text-sm text-center">
+            Create your customer account
+          </p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-5">
@@ -93,9 +101,7 @@ export default function Register({ onBackClick, onSuccess }) {
             disabled={loading}
             className="w-full bg-blue-600 text-white rounded-2xl py-4 font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 group"
           >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
               <>
                 <UserPlus className="w-5 h-5" />
                 Sign Up
