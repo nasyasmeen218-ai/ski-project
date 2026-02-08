@@ -1,14 +1,13 @@
-import { api } from "./client";
+import api from "./client";
 
-// ✅ GET /rentals/my
-export async function getMyRentals() {
-  const res = await api.get("/rentals/my");
+// Admin: list all rentals
+export async function getAllRentals() {
+  const res = await api.get("/rentals/");
   return res.data;
 }
 
-// ✅ GET /rentals (admin) with optional filters
-// params example: { status: "ACTIVE", userId: "...", productId: "..." }
-export async function getAllRentals(params) {
-  const res = await api.get("/rentals", { params });
+// Customer: list my rentals
+export async function getMyRentals() {
+  const res = await api.get("/rentals/my");
   return res.data;
 }

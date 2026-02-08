@@ -1,6 +1,6 @@
-import { api as client } from "./client";
+import api from "./client";
 
-export const getAuditLogs = async () => {
-  const res = await client.get("/audit-logs");
+export async function getAuditLogs() {
+  const res = await api.get("/audit-logs");
   return res.data;
-};
+}
