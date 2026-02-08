@@ -7,8 +7,8 @@ export default function CustomerProductCard({
   rentDisabled = false,
 }) {
   const imgSrc =
-    product.image ||
-    product.imageurl ||
+    product?.image ||
+    product?.imageurl ||
     "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
 
   return (
@@ -16,7 +16,7 @@ export default function CustomerProductCard({
       <div className="relative h-52 w-full bg-gray-50 flex items-center justify-center p-4 border-b border-gray-100">
         <img
           src={imgSrc}
-          alt={product.name}
+          alt={product?.name || "product"}
           className="max-h-full max-w-full object-contain"
           onError={(e) => {
             e.currentTarget.src =
@@ -27,15 +27,17 @@ export default function CustomerProductCard({
 
       <div className="p-5 flex-1 flex flex-col">
         <h3 className="text-base font-semibold text-gray-900 truncate">
-          {product.name}
+          {product?.name}
         </h3>
 
-        <p className="mt-2 text-blue-600 font-bold">₪{Number(product.price || 0)}</p>
+        <p className="mt-2 text-blue-600 font-bold">
+          ₪{Number(product?.price || 0)}
+        </p>
 
         <div className="mt-3 text-sm text-gray-600">
           Available:{" "}
           <span className="font-semibold">
-            {Number(product.availableQuantity ?? 0)}
+            {Number(product?.availableQuantity ?? 0)}
           </span>
         </div>
 
