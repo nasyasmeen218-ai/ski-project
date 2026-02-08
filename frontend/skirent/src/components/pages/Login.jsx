@@ -10,14 +10,12 @@ function showApiError(err, fallback = "Something went wrong") {
   if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
   const status = err.response.status;
   const rawDetail = err?.response?.data?.detail ?? err?.response?.data?.message;
-
   const detailText =
     typeof rawDetail === "string"
       ? rawDetail
       : Array.isArray(rawDetail)
-      ? rawDetail.map((x) => x?.msg).join(", ")
-      : "";
-
+        ? rawDetail.map((x) => x?.msg).join(", ")
+        : "";
   if (status === 401) return "Invalid username or password";
   if (status === 422) return detailText || "Please check the form fields";
   if (status >= 500) return "Server error. Try again";
@@ -31,11 +29,7 @@ export default function Login({ onRegisterClick, onLoginSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const u = username.trim();
-    const p = password;
-
-    if (!u || !p) {
+    if (!username.trim() || !password) {
       toast.error("Please enter username and password");
       return;
     }
@@ -43,28 +37,18 @@ export default function Login({ onRegisterClick, onLoginSuccess }) {
     try {
       setLoading(true);
 
-      // 1) login -> מקבלים access_token
-      const data = await login(u, p);
+      const data = await login(username.trim(), password);
 
-      // ✅ חשוב: זה השם הנכון לפי השרת שלך
-      const token = data?.access_token;
-      if (!token) {
-        toast.error("Login succeeded but no token returned");
-        return;
-      }
+      // ✅ FIX: backend returns access_token
+      localStorage.setItem("token", data.access_token);
 
-      // 2) לשמור token (ה-interceptor שלך משתמש במפתח "token")
-      localStorage.setItem("token", token);
-
-      // 3) להביא את המשתמש מהשרת (כולל role/username) אחרי שיש token
+      // ✅ fetch user profile (role, username)
       const user = await me();
-
-      // לשמור מה שבאמת קיים
-      if (user?.role) localStorage.setItem("role", user.role);
-      if (user?.username) localStorage.setItem("username", user.username);
+      localStorage.setItem("role", user.role || "");
+      localStorage.setItem("username", user.username || username.trim());
 
       toast.success("Welcome back!");
-      onLoginSuccess?.(user); // אפשר להעביר את user למעלה אם בא לך
+      onLoginSuccess?.();
     } catch (err) {
       toast.error(showApiError(err, "Login failed"));
     } finally {
