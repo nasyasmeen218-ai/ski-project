@@ -3,9 +3,10 @@ import { toast } from "sonner";
 
 import Navbar from "../layouts/header/Navbar";
 import ActivityDrawer from "../layouts/header/ActivityDrawer";
-import ProductFormDialog from "./layout/ProductFormDialog";
 
-import { createProduct } from "../../api/productsApi";
+// ❌ לא צריך יותר דיאלוג יצירה פה אם מוסיפים מתוך AdminProducts
+// import ProductFormDialog from "./layout/ProductFormDialog";
+// import { createProduct } from "../../api/productsApi";
 
 export default function DashboardLayout({
   user,
@@ -14,64 +15,32 @@ export default function DashboardLayout({
   children,
   onLogout,
   onProductCreated,
-  onCartClick,   
+  onCartClick,
   onOrdersClick,
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
 
   const [showActivityDrawer, setShowActivityDrawer] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  const handleAddProductClick = () => {
-    if (!isAdmin) return;
-    setShowAddDialog(true);
-  };
+  // ❌ לא צריך יותר states של add dialog
+  // const [showAddDialog, setShowAddDialog] = useState(false);
+  // const [saving, setSaving] = useState(false);
 
-  const handleCreateProduct = async (productData) => {
-    try {
-      setSaving(true);
+  // ❌ לא צריך יותר create handlers
+  // const handleAddProductClick = () => {
+  //   if (!isAdmin) return;
+  //   setShowAddDialog(true);
+  // };
 
-      const payload = {
-        name: productData.name,
-        category: productData.category,
-        gender: productData.gender,
-        type: productData.type,
-        quantity: Number(productData.quantity ?? 0),
-        availableQuantity: Number(productData.availableQuantity ?? 0),
-        rentedQuantity: Number(productData.rentedQuantity ?? 0),
-        imageurl: productData.imageurl || "",
-      };
-
-      await createProduct(payload);
-
-      toast.success("Product added");
-      setShowAddDialog(false);
-      setCurrentView("products");
-      onProductCreated?.();
-    } catch (e) {
-      console.error(e);
-
-      const status = e?.response?.status;
-      const detail = e?.response?.data?.detail;
-
-      if (status === 409) {
-        toast.error(detail || "Product already exists");
-      } else {
-        toast.error(detail || "Failed to add product");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+  // const handleCreateProduct = async (productData) => { ... }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
         onActivityClick={() => setShowActivityDrawer(true)}
-        onAddProductClick={isAdmin ? handleAddProductClick : undefined}
+        // ✅ חשוב: לא להעביר onAddProductClick -> הכפתור העליון ייעלם
         onLogoutClick={onLogout}
-        onCartClick={onCartClick}     
+        onCartClick={onCartClick}
         onOrdersClick={onOrdersClick}
       />
 
@@ -129,16 +98,7 @@ export default function DashboardLayout({
         <ActivityDrawer onClose={() => setShowActivityDrawer(false)} />
       )}
 
-      {showAddDialog && (
-        <ProductFormDialog
-          mode="add"
-          product={null}
-          onConfirm={handleCreateProduct}
-          onClose={() => {
-            if (!saving) setShowAddDialog(false);
-          }}
-        />
-      )}
+      {/* ❌ הוסר דיאלוג Add Product מכאן כדי שלא יהיה כפתור כפול */}
     </div>
   );
 }

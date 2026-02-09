@@ -6,6 +6,7 @@ import {
   Snowflake,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ import ProductFormDialog from "../layouts/layout/ProductFormDialog";
 
 import {
   getProducts,
+  createProduct as apiCreateProduct,
   deleteProduct as apiDeleteProduct,
   updateProduct as apiUpdateProduct,
 } from "../../api/productsApi";
@@ -33,6 +35,7 @@ export default function AdminProducts({ refreshSignal = 0 }) {
   const [maxQuantity, setMaxQuantity] = useState(100);
   const [showFilter, setShowFilter] = useState(false);
 
+  const [creatingProduct, setCreatingProduct] = useState(false); // ✅ CREATE dialog
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
 
@@ -44,22 +47,18 @@ export default function AdminProducts({ refreshSignal = 0 }) {
   const refreshProducts = async () => {
     try {
       const data = await getProducts();
-      setProducts(data);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error("Socket refresh failed:", e);
+      console.error("Refresh products failed:", e);
     }
   };
 
-  // ✅ האזנה לסוקט - עדכון בזמן אמת
+  // ✅ socket real-time refresh
   useEffect(() => {
-    socket.on("product_updated", (data) => {
-      console.log("Real-time update received:", data);
-      refreshProducts();
-    });
-
-    return () => {
-      socket.off("product_updated");
-    };
+    const handler = () => refreshProducts();
+    socket.on("product_updated", handler);
+    return () => socket.off("product_updated", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -87,27 +86,49 @@ export default function AdminProducts({ refreshSignal = 0 }) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+  }, [
+    searchQuery,
+    selectedCategory,
+    selectedGender,
+    selectedType,
+    minQuantity,
+    maxQuantity,
+  ]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      if (searchQuery && !product.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+      const name = (product.name || "").toLowerCase();
+      const category = (product.category || "").trim();
+      const gender = (product.gender || "").trim();
+      const type = (product.type || "").trim();
+
+      if (searchQuery && !name.includes(searchQuery.toLowerCase())) return false;
+
+      if (selectedCategory !== "all" && category !== selectedCategory) return false;
+
+      if (
+        selectedCategory === "clothing" &&
+        selectedGender !== "all" &&
+        gender !== selectedGender
+      )
         return false;
 
-      if (selectedCategory !== "all" && product.category !== selectedCategory)
-        return false;
+      if (selectedType !== "all" && type !== selectedType) return false;
 
-      if (selectedCategory === "clothing" && selectedGender !== "all" && product.gender !== selectedGender)
-        return false;
-
-      if (selectedType !== "all" && product.type !== selectedType) return false;
-
-      if (Number(product.quantity) < minQuantity || Number(product.quantity) > maxQuantity)
-        return false;
+      const q = Number(product.quantity ?? 0);
+      if (q < minQuantity || q > maxQuantity) return false;
 
       return true;
     });
-  }, [products, searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+  }, [
+    products,
+    searchQuery,
+    selectedCategory,
+    selectedGender,
+    selectedType,
+    minQuantity,
+    maxQuantity,
+  ]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
@@ -123,7 +144,11 @@ export default function AdminProducts({ refreshSignal = 0 }) {
         products
           .filter((p) => {
             if (p.category !== selectedCategory) return false;
-            if (selectedCategory === "clothing" && selectedGender !== "all" && p.gender !== selectedGender)
+            if (
+              selectedCategory === "clothing" &&
+              selectedGender !== "all" &&
+              p.gender !== selectedGender
+            )
               return false;
             return true;
           })
@@ -154,6 +179,28 @@ export default function AdminProducts({ refreshSignal = 0 }) {
     } catch (e) {
       console.error(e);
       toast.error("Edit failed", toastOpts);
+    }
+  };
+
+  const handleCreateSubmit = async (productData) => {
+    try {
+      const created = await apiCreateProduct(productData);
+      setProducts((prev) => [created, ...prev]);
+      toast.success("Product created", toastOpts);
+      setCreatingProduct(false);
+    } catch (e) {
+      console.error(e);
+      const detail = e?.response?.data?.detail;
+
+      const msg = Array.isArray(detail)
+        ? detail
+            .map((x) => `${x.loc?.slice(1).join(".")}: ${x.msg}`)
+            .join(" | ")
+        : typeof detail === "string"
+        ? detail
+        : "Create failed";
+
+      toast.error(msg, toastOpts);
     }
   };
 
@@ -216,7 +263,9 @@ export default function AdminProducts({ refreshSignal = 0 }) {
               <button
                 onClick={() => setSelectedGender("all")}
                 className={`px-4 py-1 rounded-full text-sm transition-all ${
-                  selectedGender === "all" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                  selectedGender === "all"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
                 type="button"
               >
@@ -225,7 +274,9 @@ export default function AdminProducts({ refreshSignal = 0 }) {
               <button
                 onClick={() => setSelectedGender("male")}
                 className={`px-4 py-1 rounded-full text-sm transition-all ${
-                  selectedGender === "male" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                  selectedGender === "male"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
                 type="button"
               >
@@ -234,7 +285,9 @@ export default function AdminProducts({ refreshSignal = 0 }) {
               <button
                 onClick={() => setSelectedGender("female")}
                 className={`px-4 py-1 rounded-full text-sm transition-all ${
-                  selectedGender === "female" ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+                  selectedGender === "female"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
                 type="button"
               >
@@ -261,7 +314,9 @@ export default function AdminProducts({ refreshSignal = 0 }) {
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-3xl font-bold text-gray-900">Product Management</h2>
+                <h2 className="text-3xl font-bold text-gray-900">
+                  Product Management
+                </h2>
                 <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 text-xs font-bold animate-pulse">
                   <Snowflake className="w-4 h-4" />
                   <span>-4°C SKI RESORT</span>
@@ -269,6 +324,16 @@ export default function AdminProducts({ refreshSignal = 0 }) {
               </div>
               <p className="text-gray-600">Manage all products in the system</p>
             </div>
+
+            {/* ✅ ONLY ONE Add Product button (no duplicate header button) */}
+            <button
+              onClick={() => setCreatingProduct(true)}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-md"
+              type="button"
+            >
+              <Plus className="w-5 h-5" />
+              Add Product
+            </button>
           </div>
 
           <div className="flex gap-4 mb-6">
@@ -399,7 +464,9 @@ export default function AdminProducts({ refreshSignal = 0 }) {
                   </div>
 
                   <button
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
                     disabled={currentPage === totalPages}
                     className="p-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white shadow-sm"
                     type="button"
@@ -415,13 +482,24 @@ export default function AdminProducts({ refreshSignal = 0 }) {
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 No products found
               </h3>
-              <p className="text-gray-500">Try adjusting your filters or search query</p>
+              <p className="text-gray-500">
+                Try adjusting your filters or search query
+              </p>
             </div>
           )}
         </div>
       </div>
 
       {/* Dialogs */}
+      {creatingProduct && (
+        <ProductFormDialog
+          mode="add"
+          product={null}
+          onConfirm={handleCreateSubmit}
+          onClose={() => setCreatingProduct(false)}
+        />
+      )}
+
       {editingProduct && (
         <ProductFormDialog
           mode="edit"

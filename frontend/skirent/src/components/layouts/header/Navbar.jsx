@@ -3,7 +3,14 @@ import { LogOut, User, Activity, ShoppingCart, ClipboardList } from "lucide-reac
 import { useState } from "react";
 import logo from "../../../assets/logo.png";
 
-export default function Navbar({ onActivityClick, onAddProductClick, onLogoutClick, onCartClick, onOrdersClick }) {
+export default function Navbar({
+  onActivityClick,
+  onAddProductClick,
+  onLogoutClick,
+  onCartClick,
+  onOrdersClick,
+  hideAddProductButton = false, // ✅ חדש: להסתיר כפתור Add Product כשצריך
+}) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -16,7 +23,6 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
     logout?.();
   };
 
-  // פונקציה לעיצוב שם התפקיד להצגה
   const getRoleDisplay = (role) => {
     if (role === "admin") return "Administrator";
     if (role === "employee") return "Employee";
@@ -32,8 +38,8 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
           </div>
 
           <div className="flex items-center gap-3">
-            {/* כפתור הוספת מוצר - רק לאדמין */}
-            {user?.role === "admin" && onAddProductClick && (
+            {/* ✅ כפתור הוספת מוצר - רק לאדמין, ורק אם לא מבקשים להסתיר */}
+            {user?.role === "admin" && onAddProductClick && !hideAddProductButton && (
               <button
                 onClick={onAddProductClick}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -92,21 +98,14 @@ export default function Navbar({ onActivityClick, onAddProductClick, onLogoutCli
 
               {showUserMenu && (
                 <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowUserMenu(false)}
-                  />
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
                     <div className="p-4 border-b border-gray-200">
                       <p className="font-medium text-gray-900">
                         {user?.username || user?.name || "User"}
                       </p>
-                      {user?.email && (
-                        <p className="text-sm text-gray-600">{user.email}</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Role: {getRoleDisplay(user?.role)}
-                      </p>
+                      {user?.email && <p className="text-sm text-gray-600">{user.email}</p>}
+                      <p className="text-xs text-gray-500 mt-1">Role: {getRoleDisplay(user?.role)}</p>
                     </div>
 
                     <div className="p-2">

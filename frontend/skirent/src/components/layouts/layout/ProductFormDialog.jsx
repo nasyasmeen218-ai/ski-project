@@ -33,6 +33,7 @@ export default function ProductFormDialog({
     category: product?.category || "clothing",
     gender: product?.gender || "male",
     type: product?.type || "",
+    price: Number(product?.price ?? 0), // ✅ הוספה
     quantity: Number(product?.quantity ?? 0),
     availableQuantity: Number(product?.availableQuantity ?? 0),
     rentedQuantity: Number(product?.rentedQuantity ?? 0),
@@ -59,7 +60,8 @@ export default function ProductFormDialog({
       name: product?.name || "",
       category: known ? initialCategory : "__other__",
       gender: product?.gender || "male",
-      type: knownType ? initialType : (known ? "" : ""),
+      type: knownType ? initialType : "",
+      price: Number(product?.price ?? 0), // ✅ הוספה
       quantity: Number(product?.quantity ?? 0),
       availableQuantity: Number(product?.availableQuantity ?? 0),
       rentedQuantity: Number(product?.rentedQuantity ?? 0),
@@ -72,12 +74,14 @@ export default function ProductFormDialog({
     setError("");
   }, [product, mode, clothingTypes, equipmentTypes]);
 
+  // Add mode: available = quantity, rented = 0
   useEffect(() => {
     if (!isAdd) return;
     setFormData((prev) => {
       const q = Number(prev.quantity || 0);
       return { ...prev, availableQuantity: q, rentedQuantity: 0 };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdd, formData.quantity]);
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -86,8 +90,19 @@ export default function ProductFormDialog({
     const { name, value } = e.target;
     setError("");
 
-    if (name === "quantity" || name === "availableQuantity" || name === "rentedQuantity") {
+    // numeric fields
+    if (
+      name === "quantity" ||
+      name === "availableQuantity" ||
+      name === "rentedQuantity" ||
+      name === "price"
+    ) {
       const num = Number(value);
+
+      if (name === "price") {
+        setFormData((prev) => ({ ...prev, price: Math.max(0, num) }));
+        return;
+      }
 
       setFormData((prev) => {
         if (name === "quantity") {
@@ -137,13 +152,11 @@ export default function ProductFormDialog({
       setFormData((prev) => {
         if (value === "__other__") {
           setCustomCategory("");
-          // category other => type becomes custom by default (free)
           setTypeMode("custom");
           setCustomType(prev.type || "");
           return { ...prev, category: "__other__", type: "" };
         }
 
-        // normal category => reset type to select mode
         setCustomCategory("");
         setTypeMode("select");
         setCustomType("");
@@ -182,15 +195,17 @@ export default function ProductFormDialog({
       formData.category === "__other__" ? customCategory.trim() : formData.category;
     if (!finalCategory) return "Category is required";
 
-    // final type
-    const finalType =
-      typeMode === "custom" ? customType.trim() : formData.type;
+    const finalType = typeMode === "custom" ? customType.trim() : formData.type;
     if (!finalType) return "Please select / enter a product type";
+
+    const price = Number(formData.price);
+    if (Number.isNaN(price) || price < 0) return "Price must be 0 or more";
 
     if (Number.isNaN(formData.quantity) || formData.quantity < 0) {
       return "Quantity must be 0 or more";
     }
 
+    // in edit mode, enforce a+r=q
     if (!isAdd) {
       const q = Number(formData.quantity || 0);
       const a = Number(formData.availableQuantity || 0);
@@ -215,7 +230,6 @@ export default function ProductFormDialog({
 
     const finalCategory =
       formData.category === "__other__" ? customCategory.trim() : formData.category;
-
     const finalType = typeMode === "custom" ? customType.trim() : formData.type;
 
     const productData = {
@@ -223,6 +237,7 @@ export default function ProductFormDialog({
       category: finalCategory,
       ...(finalCategory === "clothing" ? { gender: formData.gender } : {}),
       type: finalType,
+      price: Number(formData.price || 0), // ✅ חובה
       quantity: Number(formData.quantity || 0),
       availableQuantity: isAdd
         ? Number(formData.quantity || 0)
@@ -294,6 +309,10 @@ export default function ProductFormDialog({
               <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
                 <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Total Stock</div>
                 <div className="font-semibold text-gray-900">{formData.quantity} Units</div>
+              </div>
+              <div className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500"><Hash className="w-4 h-4" /> Price</div>
+                <div className="font-semibold text-gray-900">{Number(formData.price || 0)} ₪</div>
               </div>
             </div>
           </div>
@@ -485,6 +504,23 @@ export default function ProductFormDialog({
             )}
           </div>
 
+          {/* ✅ Price */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Price <span className="text-rose-600">*</span>
+            </label>
+            <input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              min="0"
+              step="0.01"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
           {/* Quantities */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -573,3 +609,4 @@ export default function ProductFormDialog({
     </div>
   );
 }
+

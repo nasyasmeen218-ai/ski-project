@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import Swal from "sweetalert2";
 
 import {
   getMyCart,
@@ -90,7 +91,6 @@ export default function CartView() {
 
   useEffect(() => {
     fetchCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const changeQty = async (cartItemId, newQty) => {
@@ -104,7 +104,17 @@ export default function CartView() {
   };
 
   const handleDelete = async (cartItemId) => {
-    if (!window.confirm("Are you sure you want to remove this item?")) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+    });
+    if (!result.isConfirmed) return;
 
     try {
       await withTimeout(deleteCartItem(cartItemId), 8000);
@@ -154,9 +164,7 @@ export default function CartView() {
         {lastOrderId && (
           <OrderSuccessMessage
             orderId={lastOrderId}
-            onViewOrders={() =>
-              window.dispatchEvent(new CustomEvent("goToOrders"))
-            }
+            onViewOrders={() => window.dispatchEvent(new CustomEvent("goToOrders"))}
           />
         )}
 
@@ -171,11 +179,7 @@ export default function CartView() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
-      {/* אם רוצים גם בזמן שיש items – אפשר להציג כאן,
-          אבל כדי לא לבלבל משתמשים, נשאיר רק כשהעגלה ריקה אחרי checkout */}
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">
-        My Shopping Cart
-      </h1>
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Shopping Cart</h1>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <ul className="divide-y divide-gray-100">
@@ -202,12 +206,8 @@ export default function CartView() {
               </div>
 
               <div className="flex-grow">
-                <h3 className="font-bold text-lg text-gray-800">
-                  {item.product_name}
-                </h3>
-                <p className="text-blue-600 font-semibold">
-                  ₪{Number(item.price || 0).toFixed(2)}
-                </p>
+                <h3 className="font-bold text-lg text-gray-800">{item.product_name}</h3>
+                <p className="text-blue-600 font-semibold">₪{Number(item.price || 0).toFixed(2)}</p>
               </div>
 
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
@@ -219,9 +219,7 @@ export default function CartView() {
                   <Minus className="w-4 h-4" />
                 </button>
 
-                <span className="font-bold w-6 text-center">
-                  {Number(item.qty || 0)}
-                </span>
+                <span className="font-bold w-6 text-center">{Number(item.qty || 0)}</span>
 
                 <button
                   onClick={() => changeQty(item.id, Number(item.qty || 0) + 1)}
@@ -246,9 +244,7 @@ export default function CartView() {
         <div className="p-6 bg-gray-50 border-t border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <span className="text-gray-600 font-medium">Total Amount:</span>
-            <span className="text-3xl font-black text-gray-900">
-              ₪{totalPrice.toFixed(2)}
-            </span>
+            <span className="text-3xl font-black text-gray-900">₪{totalPrice.toFixed(2)}</span>
           </div>
 
           <button

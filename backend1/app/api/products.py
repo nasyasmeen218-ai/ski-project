@@ -61,16 +61,18 @@ async def create_product(
         raise HTTPException(status_code=409, detail="Product already exists")
 
     product = Product(
-        id=uuid.uuid4(),
-        name=data.name,
-        category=data.category,
-        gender=data.gender,
-        type=data.type,
-        quantity=data.quantity,
-        available_quantity=data.availableQuantity,
-        rented_quantity=data.rentedQuantity,
-        imageurl=data.imageurl,
+    id=uuid.uuid4(),
+    name=data.name,
+    category=data.category,
+    gender=data.gender,
+    type=data.type,
+    price=data.price,  # ✅ חובה
+    quantity=data.quantity,
+    available_quantity=data.availableQuantity,
+    rented_quantity=data.rentedQuantity,
+    imageurl=data.imageurl,
     )
+
 
     db.add(product)
     try:
