@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import Swal from 'sweetalert2';
 
 import {
   getMyCart,
@@ -10,7 +11,6 @@ import {
 } from "../../api/cartApi";
 
 function showApiError(err, fallback = "Something went wrong") {
-  // אם לא הגיע response בכלל -> תקלה רשת/שרת לא זמין
   if (!err?.response)
     return "Cannot reach server. Make sure backend is running (port 8000)";
 
@@ -54,25 +54,19 @@ export default function CartView() {
   const [checkingOut, setCheckingOut] = useState(false);
 
   const fetchCart = async () => {
-    console.log("CartView -> fetchCart start");
     setLoading(true);
 
     try {
-      // timeout כדי לא להיתקע
       const data = await withTimeout(getMyCart(), 8000);
-      console.log("CartView -> fetchCart success", data);
       setCartItems(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("CartView -> fetchCart error", err);
 
-      // אם זה timeout
       if (String(err?.message || "").toLowerCase().includes("timeout")) {
         toast.error("Cart request timed out. Check backend / network.");
         setCartItems([]);
         return;
       }
 
-      // אם זה 401/403 - ננקה token כדי לא להישאר בלופ
       const status = err?.response?.status;
       if (status === 401 || status === 403) {
         localStorage.removeItem("token");
@@ -87,15 +81,12 @@ export default function CartView() {
       toast.error(showApiError(err, "Failed to load cart items"));
       setCartItems([]);
     } finally {
-      console.log("CartView -> fetchCart finally");
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log("CartView mounted");
     fetchCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const changeQty = async (cartItemId, newQty) => {
@@ -109,7 +100,17 @@ export default function CartView() {
   };
 
   const handleDelete = async (cartItemId) => {
-    if (!window.confirm("Are you sure you want to remove this item?")) return;
+    const result = await Swal.fire({
+            title: '?Are you sure',
+            text: "You won't be able to revert this",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it',
+            cancelButtonText: 'Cancel'
+        });
+        if (!result.isConfirmed) return;
 
     try {
       await withTimeout(deleteCartItem(cartItemId), 8000);
@@ -136,7 +137,6 @@ export default function CartView() {
       const order = await withTimeout(checkoutApi(), 15000);
       toast.success(`Checkout completed! Order #${order?.id ?? ""}`);
 
-      // UX: לנקות מיידית
       setCartItems([]);
       await fetchCart();
     } catch (err) {
