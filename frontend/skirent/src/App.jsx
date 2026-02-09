@@ -9,8 +9,9 @@ import EmployeeProducts from "./components/pages/EmployeeProducts";
 import AdminProducts from "./components/pages/AdminProducts";
 import AuditLogs from "./components/pages/AuditLogs";
 import AdminEmployees from "./components/pages/AdminEmployees";
-import CustomerProducts from "./components/pages/CustomerProducts"; 
+import CustomerProducts from "./components/pages/CustomerProducts";
 import CartView from "./components/pages/CartView";
+import MyOrders from "./components/pages/MyOrders"; // ✅ חדש
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 function AppContent() {
@@ -25,6 +26,7 @@ function AppContent() {
   const isCustomer = useMemo(() => user?.role === "customer", [user]);
 
   useEffect(() => {
+    // ✅ חסימת גישה למסכים של אדמין למי שלא אדמין
     if (!isAdmin && (currentView === "audit" || currentView === "employees")) {
       setCurrentView("products");
     }
@@ -81,18 +83,10 @@ function AppContent() {
         </>
       )}
 
-      {currentView === "cart" && isCustomer && (
-        <CartView />
-      )}
+      {currentView === "cart" && isCustomer && <CartView />}
 
-      {currentView === "orders" && isCustomer && (
-        <div className="p-6 text-center">
-          <h1 className="text-2xl font-bold mb-4">My Orders</h1>
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-             <p className="text-gray-500">You haven't placed any orders yet.</p>
-          </div>
-        </div>
-      )}
+      {/* ✅ במקום טקסט סטטי - מסך אמיתי שמביא הזמנות */}
+      {currentView === "orders" && isCustomer && <MyOrders />}
 
       {currentView === "audit" && isAdmin && <AuditLogs />}
       {currentView === "employees" && isAdmin && <AdminEmployees />}
