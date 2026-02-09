@@ -6,10 +6,7 @@ export default function CustomerProductCard({
   onRent,
   rentDisabled = false,
 }) {
-  const imgSrc =
-    product?.image ||
-    product?.imageurl ||
-    "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
+  const imgSrc = product?.imageurl || product?.image || "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import Swal from 'sweetalert2';
 
 import {
   getMyCart,
@@ -90,7 +91,6 @@ export default function CartView() {
 
   useEffect(() => {
     fetchCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const changeQty = async (cartItemId, newQty) => {
@@ -104,7 +104,17 @@ export default function CartView() {
   };
 
   const handleDelete = async (cartItemId) => {
-    if (!window.confirm("Are you sure you want to remove this item?")) return;
+    const result = await Swal.fire({
+            title: '?Are you sure',
+            text: "You won't be able to revert this",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it',
+            cancelButtonText: 'Cancel'
+        });
+        if (!result.isConfirmed) return;
 
     try {
       await withTimeout(deleteCartItem(cartItemId), 8000);

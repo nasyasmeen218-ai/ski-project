@@ -34,7 +34,6 @@ export default function CustomerProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ state לדיאלוג
   const [rentDialogOpen, setRentDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
@@ -46,7 +45,7 @@ export default function CustomerProducts() {
       const mapped = (data || []).map((p) => ({
         ...p,
         price: Number(p.price ?? 0),
-        image: p.imageurl ? `http://127.0.0.1:8000/${p.imageurl}` : null,
+        image: p.image_url ? `http://127.0.0.1:8000/static/${p.image_url}` : null,
       }));
 
       setProducts(mapped);
@@ -70,7 +69,6 @@ export default function CustomerProducts() {
     }
   };
 
-  // ✅ פתיחת דיאלוג במקום rent אוטומטי
   const openRentDialog = (product) => {
     setSelectedProduct(product);
     setRentDialogOpen(true);
@@ -81,14 +79,11 @@ export default function CustomerProducts() {
     setSelectedProduct(null);
   };
 
-  // ✅ כאן מתבצע ה-Rent בפועל עם הערכים שהמשתמש בחר
   const handleConfirmRent = async ({ days, qty, startDate }) => {
     const product = selectedProduct;
     if (!product) return;
 
     try {
-      // אם הבאקאנד שלך תומך ב-start_date זה מצוין.
-      // אם לא, אפשר למחוק את השורה start_date זמנית.
       await api.post(`/products/${product.id}/rent`, {
         qty,
         days,
@@ -115,18 +110,17 @@ export default function CustomerProducts() {
             key={product.id}
             product={product}
             onBuy={() => handleAddToCart(product)}
-            onRent={() => openRentDialog(product)}   // ✅ במקום 2,1 קבוע
+            onRent={() => openRentDialog(product)}   
             rentDisabled={Number(product.availableQuantity ?? 0) <= 0}
           />
         ))}
       </div>
 
-      {/* ✅ הדיאלוג עצמו */}
       {rentDialogOpen && selectedProduct && (
         <RentalDialog
           product={selectedProduct}
           onClose={closeRentDialog}
-          onConfirm={handleConfirmRent} // ✅ מקבל {days, qty, startDate}
+          onConfirm={handleConfirmRent} 
         />
       )}
     </div>
