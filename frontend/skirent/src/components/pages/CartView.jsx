@@ -9,8 +9,9 @@ import {
   checkout as checkoutApi,
 } from "../../api/cartApi";
 
+import OrderSuccessMessage from "../ui/OrderSuccessMessage";
+
 function showApiError(err, fallback = "Something went wrong") {
-  // אם לא הגיע response בכלל -> תקלה רשת/שרת לא זמין
   if (!err?.response)
     return "Cannot reach server. Make sure backend is running (port 8000)";
 
@@ -52,27 +53,23 @@ export default function CartView() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState(null);
 
   const fetchCart = async () => {
-    console.log("CartView -> fetchCart start");
     setLoading(true);
 
     try {
-      // timeout כדי לא להיתקע
       const data = await withTimeout(getMyCart(), 8000);
-      console.log("CartView -> fetchCart success", data);
       setCartItems(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("CartView -> fetchCart error", err);
-
-      // אם זה timeout
+      // timeout
       if (String(err?.message || "").toLowerCase().includes("timeout")) {
         toast.error("Cart request timed out. Check backend / network.");
         setCartItems([]);
         return;
       }
 
-      // אם זה 401/403 - ננקה token כדי לא להישאר בלופ
+      // 401/403 -> ננקה token
       const status = err?.response?.status;
       if (status === 401 || status === 403) {
         localStorage.removeItem("token");
@@ -87,13 +84,11 @@ export default function CartView() {
       toast.error(showApiError(err, "Failed to load cart items"));
       setCartItems([]);
     } finally {
-      console.log("CartView -> fetchCart finally");
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log("CartView mounted");
     fetchCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -134,9 +129,11 @@ export default function CartView() {
       setCheckingOut(true);
 
       const order = await withTimeout(checkoutApi(), 15000);
-      toast.success(`Checkout completed! Order #${order?.id ?? ""}`);
 
-      // UX: לנקות מיידית
+      // ✅ נשמור orderId כדי להציג הודעת הצלחה יפה + כפתור Orders
+      setLastOrderId(order?.id || null);
+
+      // UX: לרוקן מסך מיד ואז להביא שוב מהשרת
       setCartItems([]);
       await fetchCart();
     } catch (err) {
@@ -150,18 +147,32 @@ export default function CartView() {
     return <div className="p-10 text-center">Loading your cart...</div>;
   }
 
+  // ✅ עגלה ריקה: מציגים קודם הודעת הצלחה (אם קיימת) ואז empty state
   if (cartItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 text-center">
-        <ShoppingBag className="w-16 h-16 text-gray-300 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
-        <p className="text-gray-500 mt-2">Go find some awesome ski gear!</p>
+      <div className="p-6 max-w-4xl mx-auto">
+        {lastOrderId && (
+          <OrderSuccessMessage
+            orderId={lastOrderId}
+            onViewOrders={() =>
+              window.dispatchEvent(new CustomEvent("goToOrders"))
+            }
+          />
+        )}
+
+        <div className="flex flex-col items-center justify-center p-20 text-center">
+          <ShoppingBag className="w-16 h-16 text-gray-300 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
+          <p className="text-gray-500 mt-2">Go find some awesome ski gear!</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
+      {/* אם רוצים גם בזמן שיש items – אפשר להציג כאן,
+          אבל כדי לא לבלבל משתמשים, נשאיר רק כשהעגלה ריקה אחרי checkout */}
       <h1 className="text-3xl font-extrabold text-gray-900 mb-8">
         My Shopping Cart
       </h1>
