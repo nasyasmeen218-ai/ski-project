@@ -13,7 +13,6 @@ import {
   returnRentedProduct,
 } from "../../api/productsApi";
 
-
 function showApiError(err, fallback = "Something went wrong") {
   if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
   const status = err.response.status;
@@ -21,6 +20,7 @@ function showApiError(err, fallback = "Something went wrong") {
   if (status === 401) return "Unauthorized (please login again)";
   if (status === 403) return "Forbidden";
   if (status === 422) return "Invalid request (check qty/days)";
+  if (status === 409) return "Conflict (nothing to return / invalid state)";
   if (status >= 500) return "Server error. Try again";
   return (typeof detail === "string" && detail) || fallback;
 }
@@ -37,9 +37,9 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [maxQuantity, setMaxQuantity] = useState(100);
   const [showFilter, setShowFilter] = useState(false);
 
-  // ✅ הוספת Pagination State
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6; 
+  const itemsPerPage = 6;
 
   const [rentalProduct, setRentalProduct] = useState(null);
 
@@ -48,9 +48,10 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const refreshProducts = async () => {
     try {
       const data = await getProducts();
-      setProducts(data);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Fetch error:", e);
+      toast.error(showApiError(e, "Failed to load products"), toastOpts);
     }
   };
 
@@ -59,9 +60,6 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
       try {
         setIsLoading(true);
         await refreshProducts();
-      } catch (e) {
-        console.error(e);
-        toast.error(showApiError(e, "Failed to load products"), toastOpts);
       } finally {
         setIsLoading(false);
       }
@@ -69,7 +67,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     load();
   }, []);
 
-  // ✅ איפוס עמוד כשמשנים סינון
+  // reset page on filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
@@ -80,13 +78,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
       const pGender = (product.gender || "").trim().toLowerCase();
       const pName = (product.name || "").toLowerCase();
 
-      if (searchQuery && !pName.includes(searchQuery.toLowerCase())) {
-        return false;
-      }
-
-      if (selectedCategory !== "all" && pCat !== selectedCategory.toLowerCase()) {
-        return false;
-      }
+      if (searchQuery && !pName.includes(searchQuery.toLowerCase())) return false;
+      if (selectedCategory !== "all" && pCat !== selectedCategory.toLowerCase()) return false;
 
       if (
         selectedCategory === "clothing" &&
@@ -113,8 +106,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     maxQuantity,
   ]);
 
-  // ✅ לוגיקת החיתוך לעמודים
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
@@ -128,7 +121,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
           .filter((p) => {
             const pCat = (p.category || "").trim().toLowerCase();
             const pGender = (p.gender || "").trim().toLowerCase();
-            
+
             if (pCat !== selectedCategory.toLowerCase()) return false;
             if (
               selectedCategory === "clothing" &&
@@ -147,14 +140,33 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const handleRentalOpen = (product) => setRentalProduct(product);
 
-  const handleRentalConfirm = async (days, qty) => {
+  // supports both:
+  // (days, qty) OR ({ startDate, days, qty })
+  const handleRentalConfirm = async (payloadOrDays, qty) => {
     if (!rentalProduct) return;
+
+    const payload =
+      typeof payloadOrDays === "object" && payloadOrDays !== null
+        ? payloadOrDays
+        : { days: payloadOrDays, qty };
+
+    const daysNum = Number(payload.days);
+    const qtyNum = Number(payload.qty ?? 1);
+
+    if (!Number.isFinite(daysNum) || daysNum <= 0) {
+      toast.error("Days must be a valid number", toastOpts);
+      return;
+    }
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      toast.error("Quantity must be a valid number", toastOpts);
+      return;
+    }
 
     try {
       if (onRental) {
-        await onRental(rentalProduct.id, days, qty);
+        await onRental(rentalProduct.id, daysNum, qtyNum);
       } else {
-        await rentProduct(rentalProduct.id, days, qty);
+        await rentProduct(rentalProduct.id, daysNum, qtyNum);
         toast.success("Rented successfully", toastOpts);
       }
 
@@ -181,35 +193,45 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     }
   };
 
+  const handleReturnTaken = async (productId) => {
+    await returnTakenProduct(productId, 1);
+    toast.success("Returned (taken) successfully", toastOpts);
+  };
+
+  const handleReturnRented = async (productId) => {
+    await returnRentedProduct(productId, 1);
+    toast.success("Returned (rented) successfully", toastOpts);
+  };
+
+  // ✅ FIX: universal return must consider takenQuantity too
   const handleUniversalReturn = async (product) => {
     try {
-      if (Number(product.rentedQuantity) > 0) {
-        await returnRentedProduct(product.id, 1);
-        toast.success("Rental returned successfully", toastOpts);
-      } 
-      else {
+      const rented = Number(product.rentedQuantity ?? 0);
+      const taken = Number(product.takenQuantity ?? 0);
+
+      if (rented > 0 && taken > 0) {
+        toast.error("This product has both rented and taken items. Please return a specific type.", toastOpts);
+        return;
+      }
+
+      if (rented > 0) {
+        await handleReturnRented(product.id);
+      } else if (taken > 0) {
         if (onReturn) {
           await onReturn(product.id, 1);
+          toast.success("Returned (taken) successfully", toastOpts);
         } else {
-          await returnTakenProduct(product.id, 1);
-          toast.success("Returned to stock successfully", toastOpts);
+          await handleReturnTaken(product.id);
         }
+      } else {
+        toast.error("Nothing to return", toastOpts);
+        return;
       }
+
       await refreshProducts();
     } catch (e) {
       console.error(e);
       toast.error(showApiError(e, "Return failed"), toastOpts);
-    }
-  };
-
-  const handleReturnRented = async (productId) => {
-    try {
-      await returnRentedProduct(productId, 1);
-      toast.success("Rental returned successfully", toastOpts);
-      await refreshProducts();
-    } catch (e) {
-      console.error(e);
-      toast.error(showApiError(e, "Return rented failed"), toastOpts);
     }
   };
 
@@ -309,8 +331,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         </div>
       </div>
 
-      <div 
-        className="relative bg-cover bg-center py-16 border-b" 
+      <div
+        className="relative bg-cover bg-center py-16 border-b"
         style={{ backgroundImage: "url('/src/assets/ski-mountains.png')" }}
       >
         <div className="absolute inset-0 bg-white/40" />
@@ -414,40 +436,41 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                   onRental={() => handleRentalOpen(product)}
                   onTake={() => handleTake(product.id)}
                   onReturn={() => handleUniversalReturn(product)}
-                  onReturnRented={() => handleReturnRented(product.id)}
                 />
               ))}
             </div>
 
-            {/* ✅ הוספת כפתורי דפדוף (Pagination UI) */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 mt-12 pb-8">
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                  type="button"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                
+
                 {[...Array(totalPages)].map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
                     className={`w-10 h-10 rounded-lg font-medium transition-all ${
-                      currentPage === i + 1 
-                        ? "bg-blue-600 text-white shadow-md" 
+                      currentPage === i + 1
+                        ? "bg-blue-600 text-white shadow-md"
                         : "bg-white text-gray-600 hover:bg-gray-50 border"
                     }`}
+                    type="button"
                   >
                     {i + 1}
                   </button>
                 ))}
 
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                  type="button"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -457,12 +480,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         ) : (
           <div className="text-center py-12">
             <Package2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No products found
-            </h3>
-            <p className="text-gray-500">
-              Try adjusting your filters or search query
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-500">Try adjusting your filters or search query</p>
           </div>
         )}
       </div>

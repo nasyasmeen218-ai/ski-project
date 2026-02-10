@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
 import {
   ShieldOff,
   ShieldCheck,
-  ShieldAlert, // אייקון חדש עבור הקידום
+  ShieldAlert,
   Eye,
   RefreshCw,
   Search,
@@ -16,12 +17,16 @@ import {
   blockUser,
   unblockUser,
   getUserActions,
+  promoteToAdmin,
 } from "../../api/adminUsersApi";
 
 export default function AdminEmployees() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+
+  // ✅ tabs
+  const [activeTab, setActiveTab] = useState("employees"); // employees | customers
 
   // ✅ search & filters
   const [search, setSearch] = useState("");
@@ -50,12 +55,25 @@ export default function AdminEmployees() {
     loadUsers();
   }, []);
 
+  const employeesList = useMemo(() => {
+    // employees tab: admin + employee
+    return users.filter((u) => u.role === "admin" || u.role === "employee");
+  }, [users]);
+
+  const customersList = useMemo(() => {
+    // customers tab: customer
+    return users.filter((u) => u.role === "customer");
+  }, [users]);
+
+  const listForTab = useMemo(() => {
+    return activeTab === "employees" ? employeesList : customersList;
+  }, [activeTab, employeesList, customersList]);
+
   const filteredUsers = useMemo(() => {
     const s = search.trim().toLowerCase();
 
-    return users.filter((u) => {
-      const matchesSearch =
-        !s || (u.username || "").toLowerCase().includes(s);
+    return listForTab.filter((u) => {
+      const matchesSearch = !s || (u.username || "").toLowerCase().includes(s);
 
       const matchesStatus =
         statusFilter === "all"
@@ -66,7 +84,7 @@ export default function AdminEmployees() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [users, search, statusFilter]);
+  }, [listForTab, search, statusFilter]);
 
   const handlePromote = async (u) => {
     const ok = window.confirm(`Promote ${u.username} to ADMIN?`);
@@ -74,24 +92,12 @@ export default function AdminEmployees() {
 
     try {
       setBusyId(u.id);
-        const response = await fetch(`http://127.0.0.1:8000/admin/users/${u.id}/make-admin`, {
-          method: 'PATCH',
-          headers: { 
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to promote");
-      }
-
+      await promoteToAdmin(u.id);
       toast.success("User promoted to Admin!");
-      await loadUsers(); 
+      await loadUsers();
     } catch (e) {
-      console.error("Error promoting:", e);
-      toast.error(e.message);
+      console.error(e);
+      toast.error(e?.response?.data?.detail || "Failed to promote");
     } finally {
       setBusyId(null);
     }
@@ -100,9 +106,7 @@ export default function AdminEmployees() {
   const handleBlock = async (u) => {
     if (u.role === "admin") return;
 
-    const ok = window.confirm(
-      `Block ${u.username}? They won't be able to login.`
-    );
+    const ok = window.confirm(`Block ${u.username}? They won't be able to login.`);
     if (!ok) return;
 
     try {
@@ -156,17 +160,21 @@ export default function AdminEmployees() {
     setActions([]);
   };
 
+  const title =
+    activeTab === "employees" ? "Employee Management" : "Customer Management";
+
+  const subtitle =
+    activeTab === "employees"
+      ? "Search employees/admins, promote to admin, block/unblock, and view actions."
+      : "Search customers, block/unblock, and view actions.";
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Employee Management
-          </h1>
-          <p className="text-gray-600 text-sm mt-1">
-            Search employees, promote to admin, block/unblock, and view their actions.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+          <p className="text-gray-600 text-sm mt-1">{subtitle}</p>
         </div>
 
         <button
@@ -176,6 +184,33 @@ export default function AdminEmployees() {
         >
           <RefreshCw className="w-4 h-4 inline -mt-0.5 mr-2" />
           Refresh
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setActiveTab("employees")}
+          className={`px-4 py-2 rounded-lg text-sm font-bold border transition ${
+            activeTab === "employees"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+          }`}
+          type="button"
+        >
+          Employees ({employeesList.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("customers")}
+          className={`px-4 py-2 rounded-lg text-sm font-bold border transition ${
+            activeTab === "customers"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+          }`}
+          type="button"
+        >
+          Customers ({customersList.length})
         </button>
       </div>
 
@@ -235,9 +270,7 @@ export default function AdminEmployees() {
         {loading ? (
           <div className="p-10 text-center text-gray-500">Loading users…</div>
         ) : filteredUsers.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">
-            No users found.
-          </div>
+          <div className="p-10 text-center text-gray-500">No users found.</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
@@ -252,18 +285,19 @@ export default function AdminEmployees() {
 
             <tbody>
               {filteredUsers.map((u) => (
-                <tr
-                  key={u.id}
-                  className="border-t hover:bg-gray-50 transition"
-                >
-                  <td className="p-4 font-semibold text-gray-900">
-                    {u.username}
-                  </td>
+                <tr key={u.id} className="border-t hover:bg-gray-50 transition">
+                  <td className="p-4 font-semibold text-gray-900">{u.username}</td>
 
                   <td className="p-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                      u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        u.role === "admin"
+                          ? "bg-purple-100 text-purple-700"
+                          : u.role === "employee"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
                       {u.role}
                     </span>
                   </td>
@@ -281,13 +315,11 @@ export default function AdminEmployees() {
                   </td>
 
                   <td className="p-4 text-gray-600">
-                    {u.created_at
-                      ? new Date(u.created_at).toLocaleDateString()
-                      : "—"}
+                    {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
                   </td>
 
                   <td className="p-4 text-right space-x-2">
-                    {/* 👁 view actions */}
+                    {/* view actions */}
                     <button
                       onClick={() => openActions(u)}
                       className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold inline-flex items-center"
@@ -298,47 +330,48 @@ export default function AdminEmployees() {
                       View
                     </button>
 
-                  {u.role === "employee" && (
-                    <button
-                      disabled={busyId === u.id}
-                      onClick={() => handlePromote(u)}
-                      className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold disabled:opacity-50 inline-flex items-center transition-colors"
-                      type="button"
-                      title="Promote to Admin"
-                    >
-                      <ShieldAlert className="w-4 h-4 mr-1" />
-                      Promote
-                    </button>
-                  )}
+                    {/* Promote only on employees tab and only for employees */}
+                    {activeTab === "employees" && u.role === "employee" && (
+                      <button
+                        disabled={busyId === u.id}
+                        onClick={() => handlePromote(u)}
+                        className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold disabled:opacity-50 inline-flex items-center transition-colors"
+                        type="button"
+                        title="Promote to Admin"
+                      >
+                        <ShieldAlert className="w-4 h-4 mr-1" />
+                        Promote
+                      </button>
+                    )}
 
-                  {/* מציג כפתור חסימה/שחרור לכל מי שאינו אדמין (גם עובד וגם לקוח) */}
-                  {u.role !== "admin" && (
-                    <>
-                      {u.is_active ? (
-                        <button
-                          disabled={busyId === u.id}
-                          onClick={() => handleBlock(u)}
-                          className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
-                          type="button"
-                          title="Block user"
-                        >
-                          <ShieldOff className="w-4 h-4 mr-1" />
-                          Block
-                        </button>
-                      ) : (
-                        <button
-                          disabled={busyId === u.id}
-                          onClick={() => handleUnblock(u)}
-                          className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
-                          type="button"
-                          title="Unblock user"
-                        >
-                          <ShieldCheck className="w-4 h-4 mr-1" />
-                          Unblock
-                        </button>
-                      )}
-                    </>
-                  )}
+                    {/* Block/Unblock for non-admin */}
+                    {u.role !== "admin" && (
+                      <>
+                        {u.is_active ? (
+                          <button
+                            disabled={busyId === u.id}
+                            onClick={() => handleBlock(u)}
+                            className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
+                            type="button"
+                            title="Block user"
+                          >
+                            <ShieldOff className="w-4 h-4 mr-1" />
+                            Block
+                          </button>
+                        ) : (
+                          <button
+                            disabled={busyId === u.id}
+                            onClick={() => handleUnblock(u)}
+                            className="px-3 py-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-bold disabled:opacity-50 inline-flex items-center"
+                            type="button"
+                            title="Unblock user"
+                          >
+                            <ShieldCheck className="w-4 h-4 mr-1" />
+                            Unblock
+                          </button>
+                        )}
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

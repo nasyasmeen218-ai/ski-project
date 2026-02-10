@@ -9,14 +9,17 @@ import EmployeeProducts from "./components/pages/EmployeeProducts";
 import AdminProducts from "./components/pages/AdminProducts";
 import AuditLogs from "./components/pages/AuditLogs";
 import AdminEmployees from "./components/pages/AdminEmployees";
+import AdminReports from "./components/pages/AdminReports";
+import AdminCustomers from "./components/pages/AdminCustomers";
+
 import CustomerProducts from "./components/pages/CustomerProducts";
 import CartView from "./components/pages/CartView";
-import MyOrders from "./components/pages/MyOrders"; // ✅ חדש
+import MyOrders from "./components/pages/MyOrders";
+
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 function AppContent() {
   const { user, isAuthenticated, isLoadingUser, logout, refreshMe } = useAuth();
-
   const [showRegister, setShowRegister] = useState(false);
   const [currentView, setCurrentView] = useState("products");
   const [refreshProductsSignal, setRefreshProductsSignal] = useState(0);
@@ -25,12 +28,41 @@ function AppContent() {
   const isEmployee = useMemo(() => user?.role === "employee", [user]);
   const isCustomer = useMemo(() => user?.role === "customer", [user]);
 
+  // ✅ חסימת גישה למסכים של אדמין למי שלא אדמין (כולל reports + customers)
   useEffect(() => {
-    // ✅ חסימת גישה למסכים של אדמין למי שלא אדמין
-    if (!isAdmin && (currentView === "audit" || currentView === "employees")) {
+    if (
+      !isAdmin &&
+      (currentView === "audit" ||
+        currentView === "employees" ||
+        currentView === "reports" ||
+        currentView === "customers")
+    ) {
       setCurrentView("products");
     }
   }, [isAdmin, currentView]);
+
+  // ✅ הגנה קטנה: אם currentView לא מוכר (מונע מסך ריק) - כולל customers
+  useEffect(() => {
+    const allowed = new Set([
+      "products",
+      "cart",
+      "orders",
+      "reports",
+      "audit",
+      "employees",
+      "customers",
+    ]);
+    if (!allowed.has(currentView)) {
+      setCurrentView("products");
+    }
+  }, [currentView]);
+
+  // ✅ מאפשר ל-CartView להעביר אותך ל-Orders אחרי Checkout
+  useEffect(() => {
+    const handler = () => setCurrentView("orders");
+    window.addEventListener("goToOrders", handler);
+    return () => window.removeEventListener("goToOrders", handler);
+  }, []);
 
   if (isLoadingUser) {
     return (
@@ -84,12 +116,13 @@ function AppContent() {
       )}
 
       {currentView === "cart" && isCustomer && <CartView />}
-
-      {/* ✅ במקום טקסט סטטי - מסך אמיתי שמביא הזמנות */}
       {currentView === "orders" && isCustomer && <MyOrders />}
 
+      {/* ✅ Admin only views */}
+      {currentView === "reports" && isAdmin && <AdminReports />}
       {currentView === "audit" && isAdmin && <AuditLogs />}
       {currentView === "employees" && isAdmin && <AdminEmployees />}
+      {currentView === "customers" && isAdmin && <AdminCustomers />}
     </DashboardLayout>
   );
 }

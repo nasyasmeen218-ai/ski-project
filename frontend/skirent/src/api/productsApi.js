@@ -27,26 +27,31 @@ export async function deleteProduct(productId) {
 // Stock / Rental actions (Employee)
 // =========================
 
-// take from stock: POST /products/{id}/take { qty }
 export async function takeProduct(productId, qty = 1) {
-  const res = await api.post(`/products/${productId}/take`, { qty });
+  const res = await api.post(`/products/${productId}/take`, {
+    qty: Number(qty),
+  });
   return res.data;
 }
 
-// return taken: POST /products/{id}/return-taken { qty }
 export async function returnTakenProduct(productId, qty = 1) {
-  const res = await api.post(`/products/${productId}/return-taken`, { qty });
+  const res = await api.post(`/products/${productId}/return-taken`, {
+    qty: Number(qty),
+  });
   return res.data;
 }
 
-// rent: POST /products/{id}/rent { qty, days }
 export async function rentProduct(productId, days, qty = 1) {
-  const res = await api.post(`/products/${productId}/rent`, { qty, days });
+  const res = await api.post(`/products/${productId}/rent`, {
+    qty: Number(qty),
+    days: Number(days),
+  });
   return res.data;
 }
 
-// return rented: POST /products/{id}/return-rented { qty }
 export async function returnRentedProduct(productId, qty = 1) {
-  const res = await api.post(`/products/${productId}/return-rented`, { qty });
+  const res = await api.post(`/products/${productId}/return-rented`, {
+    qty: Number(qty),
+  });
   return res.data;
 }

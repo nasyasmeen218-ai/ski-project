@@ -3,9 +3,6 @@ import { toast } from "sonner";
 
 import Navbar from "../layouts/header/Navbar";
 import ActivityDrawer from "../layouts/header/ActivityDrawer";
-import ProductFormDialog from "./layout/ProductFormDialog";
-
-import { createProduct } from "../../api/productsApi";
 
 export default function DashboardLayout({
   user,
@@ -14,64 +11,18 @@ export default function DashboardLayout({
   children,
   onLogout,
   onProductCreated,
-  onCartClick,   
+  onCartClick,
   onOrdersClick,
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
-
   const [showActivityDrawer, setShowActivityDrawer] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleAddProductClick = () => {
-    if (!isAdmin) return;
-    setShowAddDialog(true);
-  };
-
-  const handleCreateProduct = async (productData) => {
-    try {
-      setSaving(true);
-
-      const payload = {
-        name: productData.name,
-        category: productData.category,
-        gender: productData.gender,
-        type: productData.type,
-        quantity: Number(productData.quantity ?? 0),
-        availableQuantity: Number(productData.availableQuantity ?? 0),
-        rentedQuantity: Number(productData.rentedQuantity ?? 0),
-        imageurl: productData.imageurl || "",
-      };
-
-      await createProduct(payload);
-
-      toast.success("Product added");
-      setShowAddDialog(false);
-      setCurrentView("products");
-      onProductCreated?.();
-    } catch (e) {
-      console.error(e);
-
-      const status = e?.response?.status;
-      const detail = e?.response?.data?.detail;
-
-      if (status === 409) {
-        toast.error(detail || "Product already exists");
-      } else {
-        toast.error(detail || "Failed to add product");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
         onActivityClick={() => setShowActivityDrawer(true)}
-        onAddProductClick={isAdmin ? handleAddProductClick : undefined}
         onLogoutClick={onLogout}
-        onCartClick={onCartClick}     
+        onCartClick={onCartClick}
         onOrdersClick={onOrdersClick}
       />
 
@@ -90,6 +41,22 @@ export default function DashboardLayout({
               Products
             </button>
 
+            {/* ✅ Inventory Reports -> reports */}
+            {isAdmin && (
+              <button
+                onClick={() => setCurrentView("reports")}
+                className={`text-sm font-medium transition-all pb-4 ${
+                  currentView === "reports"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                type="button"
+              >
+                Inventory Reports
+              </button>
+            )}
+
+            {/* ✅ Audit Logs -> audit */}
             {isAdmin && (
               <button
                 onClick={() => setCurrentView("audit")}
@@ -100,10 +67,11 @@ export default function DashboardLayout({
                 }`}
                 type="button"
               >
-                Inventory Reports
+                Audit Logs
               </button>
             )}
 
+            {/* ✅ Employees -> employees */}
             {isAdmin && (
               <button
                 onClick={() => setCurrentView("employees")}
@@ -117,6 +85,21 @@ export default function DashboardLayout({
                 Employees
               </button>
             )}
+
+            {/* ✅ Customers -> customers */}
+            {isAdmin && (
+              <button
+                onClick={() => setCurrentView("customers")}
+                className={`text-sm font-medium transition-all pb-4 ${
+                  currentView === "customers"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                type="button"
+              >
+                Customers
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -127,17 +110,6 @@ export default function DashboardLayout({
 
       {showActivityDrawer && (
         <ActivityDrawer onClose={() => setShowActivityDrawer(false)} />
-      )}
-
-      {showAddDialog && (
-        <ProductFormDialog
-          mode="add"
-          product={null}
-          onConfirm={handleCreateProduct}
-          onClose={() => {
-            if (!saving) setShowAddDialog(false);
-          }}
-        />
       )}
     </div>
   );

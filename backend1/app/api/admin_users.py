@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.db.session import get_db
 from app.core.security import require_admin
@@ -7,6 +8,13 @@ from app.models.user import User
 from app.models.audit_log import AuditLog
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
+
+
+def _parse_uuid(id_str: str) -> UUID:
+    try:
+        return UUID(id_str)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user_id")
 
 
 @router.get("/users")
@@ -33,7 +41,9 @@ def block_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    uid = _parse_uuid(user_id)
+
+    user = db.query(User).filter(User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -53,7 +63,9 @@ def unblock_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    uid = _parse_uuid(user_id)
+
+    user = db.query(User).filter(User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -70,7 +82,9 @@ def user_actions(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    uid = _parse_uuid(user_id)
+
+    user = db.query(User).filter(User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -100,7 +114,9 @@ def make_user_admin(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    uid = _parse_uuid(user_id)
+
+    user = db.query(User).filter(User.id == uid).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

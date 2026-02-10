@@ -11,9 +11,8 @@ from app.db.session import get_db
 from app.models.user import User
 import os
 
-SECRET_KEY = "CHANGE_ME"
 ALGORITHM = "HS256"
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -27,8 +26,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    # bcrypt מגביל 72 bytes. אם תרצי הגנה קשיחה:
-    # password = password[:72]
     return pwd_context.hash(password)
 
 

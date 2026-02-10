@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
 import {
   getMyCart,
@@ -9,6 +9,8 @@ import {
   deleteCartItem,
   checkout as checkoutApi,
 } from "../../api/cartApi";
+
+import OrderSuccessMessage from "../ui/OrderSuccessMessage";
 
 function showApiError(err, fallback = "Something went wrong") {
   if (!err?.response)
@@ -51,6 +53,7 @@ export default function CartView() {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState(null);
 
   const fetchCart = async () => {
     setLoading(true);
@@ -58,11 +61,14 @@ export default function CartView() {
       const data = await withTimeout(getMyCart(), 8000);
       setCartItems(Array.isArray(data) ? data : []);
     } catch (err) {
+      // timeout
       if (String(err?.message || "").toLowerCase().includes("timeout")) {
         toast.error("Cart request timed out. Check backend / network.");
         setCartItems([]);
         return;
       }
+
+      // 401/403 -> clear token
       const status = err?.response?.status;
       if (status === 401 || status === 403) {
         localStorage.removeItem("token");
@@ -72,6 +78,7 @@ export default function CartView() {
         setCartItems([]);
         return;
       }
+
       toast.error(showApiError(err, "Failed to load cart items"));
       setCartItems([]);
     } finally {
@@ -95,14 +102,14 @@ export default function CartView() {
 
   const handleDelete = async (cartItemId) => {
     const result = await Swal.fire({
-      title: 'Are you sure?',
+      title: "Are you sure?",
       text: "You won't be able to revert this",
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it',
-      cancelButtonText: 'Cancel'
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
     });
     if (!result.isConfirmed) return;
 
@@ -115,10 +122,9 @@ export default function CartView() {
     }
   };
 
-  // תיקון לוגיקת החישוב: הבאקנד כבר מחשב מחיר ליום * ימים
+  // backend already calculates item.price for rentals if needed
   const totalPrice = useMemo(() => {
     return cartItems.reduce((sum, item) => {
-      // item.price הוא כבר המחיר הנכון (מחיר מוצר או מחיר השכרה כולל ימים)
       const itemTotal = Number(item.price || 0) * Number(item.qty || 0);
       return sum + itemTotal;
     }, 0);
@@ -129,7 +135,10 @@ export default function CartView() {
     try {
       setCheckingOut(true);
       const order = await withTimeout(checkoutApi(), 15000);
-      toast.success(`Checkout completed! Order #${order?.id ?? ""}`);
+
+      // keep orderId for nice success message
+      setLastOrderId(order?.id || null);
+
       setCartItems([]);
       await fetchCart();
     } catch (err) {
@@ -145,19 +154,26 @@ export default function CartView() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 text-center">
-        <ShoppingBag className="w-16 h-16 text-gray-300 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
-        <p className="text-gray-500 mt-2">Go find some awesome ski gear!</p>
+      <div className="p-6 max-w-4xl mx-auto">
+        {lastOrderId && (
+          <OrderSuccessMessage
+            orderId={lastOrderId}
+            onViewOrders={() => window.dispatchEvent(new CustomEvent("goToOrders"))}
+          />
+        )}
+
+        <div className="flex flex-col items-center justify-center p-20 text-center">
+          <ShoppingBag className="w-16 h-16 text-gray-300 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
+          <p className="text-gray-500 mt-2">Go find some awesome ski gear!</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">
-        My Shopping Cart
-      </h1>
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Shopping Cart</h1>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <ul className="divide-y divide-gray-100">
@@ -184,14 +200,14 @@ export default function CartView() {
               </div>
 
               <div className="flex-grow">
-                <h3 className="font-bold text-lg text-gray-800">
-                  {item.product_name}
-                </h3>
+                <h3 className="font-bold text-lg text-gray-800">{item.product_name}</h3>
+
                 {item.is_rental && (
                   <p className="text-xs text-green-600 font-bold mb-1">
                     Rental for {item.rental_days} days
                   </p>
                 )}
+
                 <p className="text-blue-600 font-semibold">
                   ₪{Number(item.price || 0).toFixed(2)}
                 </p>
@@ -206,9 +222,7 @@ export default function CartView() {
                   <Minus className="w-4 h-4" />
                 </button>
 
-                <span className="font-bold w-6 text-center">
-                  {Number(item.qty || 0)}
-                </span>
+                <span className="font-bold w-6 text-center">{Number(item.qty || 0)}</span>
 
                 <button
                   onClick={() => changeQty(item.id, Number(item.qty || 0) + 1)}
@@ -233,9 +247,7 @@ export default function CartView() {
         <div className="p-6 bg-gray-50 border-t border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <span className="text-gray-600 font-medium">Total Amount:</span>
-            <span className="text-3xl font-black text-gray-900">
-              ₪{totalPrice.toFixed(2)}
-            </span>
+            <span className="text-3xl font-black text-gray-900">₪{totalPrice.toFixed(2)}</span>
           </div>
 
           <button
