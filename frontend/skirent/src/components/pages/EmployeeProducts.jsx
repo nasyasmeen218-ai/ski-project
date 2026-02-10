@@ -8,7 +8,6 @@ import RentalDialog from "../layouts/layout/RentalDialog";
 import {
   getProducts,
   takeProduct,
-  returnTakenProduct,
   rentProduct,
   returnRentedProduct,
 } from "../../api/productsApi";
@@ -20,12 +19,12 @@ function showApiError(err, fallback = "Something went wrong") {
   if (status === 401) return "Unauthorized (please login again)";
   if (status === 403) return "Forbidden";
   if (status === 422) return "Invalid request (check qty/days)";
-  if (status === 409) return "Conflict (nothing to return / invalid state)";
+  if (status === 409) return (typeof detail === "string" && detail) || "Conflict (nothing to return / invalid state)";
   if (status >= 500) return "Server error. Try again";
   return (typeof detail === "string" && detail) || fallback;
 }
 
-export default function EmployeeProducts({ onRental, onTake, onReturn }) {
+export default function EmployeeProducts({ onRental, onTake }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,6 +41,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const itemsPerPage = 6;
 
   const [rentalProduct, setRentalProduct] = useState(null);
+  const [returningProductId, setReturningProductId] = useState(null);
 
   const toastOpts = { position: "top-center" };
 
@@ -108,6 +108,15 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
 
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const applyProductUpdate = (updatedProduct) => {
+    if (!updatedProduct?.id) return;
+    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+  };
+
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
@@ -165,13 +174,14 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     try {
       if (onRental) {
         await onRental(rentalProduct.id, daysNum, qtyNum);
+        await refreshProducts();
       } else {
-        await rentProduct(rentalProduct.id, daysNum, qtyNum);
+        const updated = await rentProduct(rentalProduct.id, daysNum, qtyNum);
+        applyProductUpdate(updated);
         toast.success("Rented successfully", toastOpts);
       }
 
       setRentalProduct(null);
-      await refreshProducts();
     } catch (e) {
       console.error(e);
       toast.error(showApiError(e, "Rent failed"), toastOpts);
@@ -182,56 +192,49 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
     try {
       if (onTake) {
         await onTake(productId, 1);
+        await refreshProducts();
       } else {
-        await takeProduct(productId, 1);
+        const updated = await takeProduct(productId, 1);
+        applyProductUpdate(updated);
         toast.success("Taken successfully", toastOpts);
       }
-      await refreshProducts();
     } catch (e) {
       console.error(e);
       toast.error(showApiError(e, "Take failed"), toastOpts);
     }
   };
 
-  const handleReturnTaken = async (productId) => {
-    await returnTakenProduct(productId, 1);
-    toast.success("Returned (taken) successfully", toastOpts);
-  };
-
   const handleReturnRented = async (productId) => {
-    await returnRentedProduct(productId, 1);
+    const updated = await returnRentedProduct(productId, 1);
+    applyProductUpdate(updated);
     toast.success("Returned (rented) successfully", toastOpts);
   };
 
-  // ✅ FIX: universal return must consider takenQuantity too
   const handleUniversalReturn = async (product) => {
     try {
       const rented = Number(product.rentedQuantity ?? 0);
-      const taken = Number(product.takenQuantity ?? 0);
 
-      if (rented > 0 && taken > 0) {
-        toast.error("This product has both rented and taken items. Please return a specific type.", toastOpts);
+      if (rented <= 0) {
+        toast.error("Return is available only for rented items", toastOpts);
         return;
       }
 
-      if (rented > 0) {
-        await handleReturnRented(product.id);
-      } else if (taken > 0) {
-        if (onReturn) {
-          await onReturn(product.id, 1);
-          toast.success("Returned (taken) successfully", toastOpts);
-        } else {
-          await handleReturnTaken(product.id);
-        }
-      } else {
-        toast.error("Nothing to return", toastOpts);
+      if (returningProductId === product.id) {
         return;
       }
 
-      await refreshProducts();
+      setReturningProductId(product.id);
+      await handleReturnRented(product.id);
     } catch (e) {
       console.error(e);
+
+      if (e?.response?.status === 409) {
+        await refreshProducts();
+      }
+
       toast.error(showApiError(e, "Return failed"), toastOpts);
+    } finally {
+      setReturningProductId(null);
     }
   };
 
@@ -436,6 +439,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                   onRental={() => handleRentalOpen(product)}
                   onTake={() => handleTake(product.id)}
                   onReturn={() => handleUniversalReturn(product)}
+                  isReturning={returningProductId === product.id}
                 />
               ))}
             </div>
