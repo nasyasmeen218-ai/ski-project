@@ -44,6 +44,42 @@ def to_product_out(p: Product) -> dict:
     }
 
 
+def normalize_product_totals(product: Product) -> bool:
+    quantity = int(product.quantity or 0)
+    available = int(product.available_quantity or 0)
+    rented = int(product.rented_quantity or 0)
+    taken = int(getattr(product, "taken_quantity", 0) or 0)
+
+    changed = False
+
+    if quantity < 0:
+        quantity = 0
+        changed = True
+    if rented < 0:
+        rented = 0
+        changed = True
+    if taken < 0:
+        taken = 0
+        changed = True
+
+    if quantity < rented + taken:
+        quantity = rented + taken
+        changed = True
+
+    expected_available = quantity - rented - taken
+    if available != expected_available:
+        available = expected_available
+        changed = True
+
+    if changed:
+        product.quantity = quantity
+        product.available_quantity = available
+        product.rented_quantity = rented
+        product.taken_quantity = taken
+
+    return changed
+
+
 def validate_totals(quantity: int, available: int, rented: int, taken: int) -> None:
     if quantity < 0 or available < 0 or rented < 0 or taken < 0:
         raise HTTPException(status_code=400, detail="Quantities cannot be negative")
@@ -63,6 +99,14 @@ def list_products(
     db: Session = Depends(get_db),
 ):
     products = db.query(Product).order_by(Product.created_at.desc()).all()
+
+    changed = False
+    for product in products:
+        changed = normalize_product_totals(product) or changed
+
+    if changed:
+        db.commit()
+
     return [to_product_out(p) for p in products]
 
 
@@ -139,6 +183,10 @@ async def update_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
+
     if payload.name is not None:
         existing = db.query(Product).filter(
             Product.name == payload.name,
@@ -196,6 +244,10 @@ async def delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
+
     active_rental = (
         db.query(Rental)
         .filter(
@@ -242,6 +294,10 @@ async def take_product(
     product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
 
     available = int(product.available_quantity or 0)
     if available < body.qty:
@@ -290,6 +346,10 @@ async def return_taken_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
+
     taken = int(getattr(product, "taken_quantity", 0) or 0)
     if taken < body.qty:
         raise HTTPException(status_code=409, detail="Nothing to return (taken)")
@@ -336,6 +396,10 @@ async def rent_product(
     product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
 
     available = int(product.available_quantity or 0)
     if available < body.qty:
@@ -396,6 +460,10 @@ async def return_rented_product(
     product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if normalize_product_totals(product):
+        db.commit()
+        db.refresh(product)
 
     rented = int(product.rented_quantity or 0)
     if rented < body.qty:
