@@ -17,15 +17,29 @@ class Product(Base):
     category: Mapped[str] = mapped_column(String(20), nullable=False)
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
     type: Mapped[str] = mapped_column(String(60), nullable=False)
-    
+
     imageurl: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    rental_price: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)
+
+    # Total units (constant "physical" inventory)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # How many currently in store (available to take/rent)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # How many currently rented out
     rented_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # ✅ NEW: how many currently taken out by employees (not rented)
+    taken_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
 
     @property
     def is_available(self) -> bool:

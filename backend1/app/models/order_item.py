@@ -12,6 +12,8 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    is_rental: Mapped[bool] = mapped_column(default=False)
+    rental_days: Mapped[int] = mapped_column(Integer, nullable=True)
 
     order_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

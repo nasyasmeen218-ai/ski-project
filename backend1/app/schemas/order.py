@@ -6,6 +6,8 @@ from typing import List, Optional
 class OrderItemCreate(BaseModel):
     product_id: str
     qty: int = Field(..., gt=0)
+    is_rental: bool = False
+    rental_days: Optional[int] = 1
 
 
 class OrderCreateRequest(BaseModel):
@@ -17,6 +19,8 @@ class OrderItemResponse(BaseModel):
     product_id: str
     qty: int
     price_at_order: Optional[float] = None
+    is_rental: bool = False
+    rental_days: Optional[int] = 1
 
 
 class OrderResponse(BaseModel):

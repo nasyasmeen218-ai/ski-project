@@ -34,7 +34,6 @@ function showApiError(err, fallback = "Something went wrong") {
   return detail || fallback;
 }
 
-// Promise timeout כדי שלא ניתקע על Loading לנצח
 function withTimeout(promise, ms = 8000) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timeout")), ms);
@@ -58,7 +57,6 @@ export default function CartView() {
 
   const fetchCart = async () => {
     setLoading(true);
-
     try {
       const data = await withTimeout(getMyCart(), 8000);
       setCartItems(Array.isArray(data) ? data : []);
@@ -70,14 +68,13 @@ export default function CartView() {
         return;
       }
 
-      // 401/403 -> ננקה token
+      // 401/403 -> clear token
       const status = err?.response?.status;
       if (status === 401 || status === 403) {
         localStorage.removeItem("token");
         localStorage.removeItem("role");
         localStorage.removeItem("username");
         toast.error(showApiError(err), { duration: 4000 });
-        toast.message("Please login again.");
         setCartItems([]);
         return;
       }
@@ -121,29 +118,27 @@ export default function CartView() {
       toast.success("Item removed");
       await fetchCart();
     } catch (err) {
-      toast.error(showApiError(err, "Could not remove item. Please try again."));
+      toast.error(showApiError(err, "Could not remove item"));
     }
   };
 
+  // backend already calculates item.price for rentals if needed
   const totalPrice = useMemo(() => {
-    return cartItems.reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
-      0
-    );
+    return cartItems.reduce((sum, item) => {
+      const itemTotal = Number(item.price || 0) * Number(item.qty || 0);
+      return sum + itemTotal;
+    }, 0);
   }, [cartItems]);
 
   const handleCheckout = async () => {
     if (checkingOut) return;
-
     try {
       setCheckingOut(true);
-
       const order = await withTimeout(checkoutApi(), 15000);
 
-      // ✅ נשמור orderId כדי להציג הודעת הצלחה יפה + כפתור Orders
+      // keep orderId for nice success message
       setLastOrderId(order?.id || null);
 
-      // UX: לרוקן מסך מיד ואז להביא שוב מהשרת
       setCartItems([]);
       await fetchCart();
     } catch (err) {
@@ -157,7 +152,6 @@ export default function CartView() {
     return <div className="p-10 text-center">Loading your cart...</div>;
   }
 
-  // ✅ עגלה ריקה: מציגים קודם הודעת הצלחה (אם קיימת) ואז empty state
   if (cartItems.length === 0) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -207,7 +201,16 @@ export default function CartView() {
 
               <div className="flex-grow">
                 <h3 className="font-bold text-lg text-gray-800">{item.product_name}</h3>
-                <p className="text-blue-600 font-semibold">₪{Number(item.price || 0).toFixed(2)}</p>
+
+                {item.is_rental && (
+                  <p className="text-xs text-green-600 font-bold mb-1">
+                    Rental for {item.rental_days} days
+                  </p>
+                )}
+
+                <p className="text-blue-600 font-semibold">
+                  ₪{Number(item.price || 0).toFixed(2)}
+                </p>
               </div>
 
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">

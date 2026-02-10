@@ -67,8 +67,10 @@ export default function ProductCard({
   const categoryBadge = getCategoryBadge();
   const stockStatus = getStockStatus();
 
+  // ✅ חשוב: הוספנו takenQuantity כדי שיראו את השינוי אחרי Take/Return-taken
   const available = Number(product.availableQuantity || 0);
   const rented = Number(product.rentedQuantity || 0);
+  const taken = Number(product.takenQuantity || 0);
   const total = Number(product.quantity || 0);
 
   const handleConfirmDelete = () => {
@@ -76,19 +78,23 @@ export default function ProductCard({
     setShowDeleteConfirm(false);
   };
 
-return (
+  return (
     <>
       {/* CARD - flex flex-col ו-h-full מבטיחים שכל הכרטיסים באותה שורה יהיו באותו גובה */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full">
-        
         {/* Container לתמונה - object-contain מבטיח שהתמונה לא תיחתך */}
         <div className="relative h-56 w-full bg-gray-50 flex items-center justify-center p-4 border-b border-gray-100">
           <img
-            src={product.imageurl || product.imageUrl || "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg"}
+            src={
+              product.imageurl ||
+              product.imageUrl ||
+              "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg"
+            }
             alt={product.name}
             className="max-h-full max-w-full object-contain transition-transform duration-500 hover:scale-105"
             onError={(e) => {
-              e.target.src = "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
+              e.target.src =
+                "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
             }}
           />
         </div>
@@ -106,10 +112,14 @@ return (
                   {product.name}
                 </h3>
                 <div className="mt-1 flex items-center gap-2 flex-wrap">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${categoryBadge.cls}`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${categoryBadge.cls}`}
+                  >
                     {categoryBadge.text}
                   </span>
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stockStatus.cls}`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${stockStatus.cls}`}
+                  >
                     {stockStatus.text}
                   </span>
                 </div>
@@ -130,27 +140,34 @@ return (
           </div>
 
           <p className="mt-3 text-sm text-gray-600 uppercase tracking-tight">
-            {product.category === "clothing" ? "Clothing" : "Equipment"} • {getCategoryLabel()}
+            {product.category === "clothing" ? "Clothing" : "Equipment"} •{" "}
+            {getCategoryLabel()}
           </p>
         </div>
 
         {/* Body - flex-1 גורם לחלק הזה למלא את השטח הנותר ולדחוף את האקשנים למטה */}
         <div className="px-5 pt-4 flex-1 flex flex-col">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* ✅ Stats - הוספנו Taken */}
+          <div className="grid grid-cols-4 gap-3">
             <Stat label="Available" value={available} color="text-blue-600" />
             <Stat label="Rented" value={rented} color="text-orange-600" />
+            <Stat label="Taken" value={taken} color="text-purple-600" />
             <Stat label="Total" value={total} color="text-gray-900" />
           </div>
 
           {/* Reserve space so all cards align */}
           <div className="mt-3 min-h-[24px]">
-            {rented > 0 && (
+            {rented > 0 ? (
               <div className="flex items-center gap-2 text-sm text-orange-700">
                 <Clock className="w-4 h-4" />
                 <span>{rented} currently rented</span>
               </div>
-            )}
+            ) : taken > 0 ? (
+              <div className="flex items-center gap-2 text-sm text-purple-700">
+                <Clock className="w-4 h-4" />
+                <span>{taken} currently taken</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Actions pinned to bottom using mt-auto */}
@@ -159,7 +176,7 @@ return (
               <div className="grid grid-cols-3 gap-2">
                 <ActionBtn
                   onClick={onReturn}
-                  disabled={rented === 0}
+                  disabled={rented === 0 && taken === 0}
                   color="emerald"
                 >
                   Return

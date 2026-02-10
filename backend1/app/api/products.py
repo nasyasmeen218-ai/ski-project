@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from app.socket_manager import sio  
+from app.socket_manager import sio
 from app.core.security import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.product import Product
@@ -18,9 +18,13 @@ from app.services.audit_service import log_action
 router = APIRouter(prefix="/products", tags=["products"])
 
 
+# =========================
+# Helpers
+# =========================
 def to_product_out(p: Product) -> dict:
-    """הופך את אובייקט המוצר מה-DB ל-JSON עבור הפרונטנד"""
     available = int(p.available_quantity or 0)
+    rented = int(p.rented_quantity or 0)
+    taken = int(getattr(p, "taken_quantity", 0) or 0)
 
     return {
         "id": str(p.id),
@@ -29,15 +33,30 @@ def to_product_out(p: Product) -> dict:
         "gender": p.gender,
         "type": p.type,
         "price": float(p.price or 0.0),
+        "rental_price": float(getattr(p, "rental_price", 0.0) or 0.0),
         "quantity": int(p.quantity or 0),
         "availableQuantity": available,
-        "rentedQuantity": int(p.rented_quantity or 0),
+        "rentedQuantity": rented,
+        "takenQuantity": taken,  # ✅ חדש (לא חובה בפרונט, אבל שימושי)
         "imageurl": p.imageurl,
         "is_available": available > 0,
         "max_qty_allowed": max(available, 0),
     }
 
 
+def validate_totals(quantity: int, available: int, rented: int, taken: int) -> None:
+    if quantity < 0 or available < 0 or rented < 0 or taken < 0:
+        raise HTTPException(status_code=400, detail="Quantities cannot be negative")
+    if available + rented + taken != quantity:
+        raise HTTPException(
+            status_code=400,
+            detail="Total quantity must equal available + rented + taken",
+        )
+
+
+# =========================
+# CRUD
+# =========================
 @router.get("")
 def list_products(
     user=Depends(get_current_user),
@@ -53,26 +72,33 @@ async def create_product(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    if data.availableQuantity + data.rentedQuantity != data.quantity:
-        raise HTTPException(status_code=400, detail="Total quantity must equal available + rented")
+    taken = 0  # default
+
+    validate_totals(
+        quantity=int(data.quantity),
+        available=int(data.availableQuantity),
+        rented=int(data.rentedQuantity),
+        taken=int(taken),
+    )
 
     existing = db.query(Product).filter(Product.name == data.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="Product already exists")
 
     product = Product(
-    id=uuid.uuid4(),
-    name=data.name,
-    category=data.category,
-    gender=data.gender,
-    type=data.type,
-    price=data.price,  # ✅ חובה
-    quantity=data.quantity,
-    available_quantity=data.availableQuantity,
-    rented_quantity=data.rentedQuantity,
-    imageurl=data.imageurl,
+        id=uuid.uuid4(),
+        name=data.name,
+        category=data.category,
+        gender=data.gender,
+        type=data.type,
+        price=data.price,
+        rental_price=data.rental_price if data.rental_price is not None else 0.0,
+        quantity=data.quantity,
+        available_quantity=data.availableQuantity,
+        rented_quantity=data.rentedQuantity,
+        taken_quantity=taken,  # ✅
+        imageurl=data.imageurl,
     )
-
 
     db.add(product)
     try:
@@ -82,6 +108,7 @@ async def create_product(
         raise HTTPException(status_code=409, detail="Product already exists")
     db.refresh(product)
 
+    # ✅ audit בלי commit פנימי
     log_action(
         db=db,
         actor_user_id=str(admin.id),
@@ -90,6 +117,7 @@ async def create_product(
         qty=product.quantity,
         meta={"name": product.name, "category": product.category, "type": product.type},
     )
+    db.commit()  # commit של ה-audit flush
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -115,7 +143,7 @@ async def update_product(
     if payload.name is not None:
         existing = db.query(Product).filter(
             Product.name == payload.name,
-            Product.id != product.id
+            Product.id != product.id,
         ).first()
         if existing:
             raise HTTPException(status_code=409, detail="Product name already exists")
@@ -131,18 +159,20 @@ async def update_product(
         product.imageurl = payload.imageurl
     if payload.price is not None:
         product.price = payload.price
+    if payload.rental_price is not None:
+        product.rental_price = payload.rental_price
 
-    new_quantity = product.quantity if payload.quantity is None else payload.quantity
-    new_available = product.available_quantity if payload.availableQuantity is None else payload.availableQuantity
-    new_rented = product.rented_quantity if payload.rentedQuantity is None else payload.rentedQuantity
+    new_quantity = int(product.quantity if payload.quantity is None else payload.quantity)
+    new_available = int(product.available_quantity if payload.availableQuantity is None else payload.availableQuantity)
+    new_rented = int(product.rented_quantity if payload.rentedQuantity is None else payload.rentedQuantity)
+    new_taken = int(getattr(product, "taken_quantity", 0) or 0)
 
-    # ✅ שמירה על ה-check constraint
-    if new_available + new_rented != new_quantity:
-        raise HTTPException(status_code=400, detail="Total quantity must equal available + rented")
+    validate_totals(new_quantity, new_available, new_rented, new_taken)
 
     product.quantity = new_quantity
     product.available_quantity = new_available
     product.rented_quantity = new_rented
+    product.taken_quantity = new_taken
 
     db.commit()
     db.refresh(product)
@@ -169,7 +199,11 @@ async def delete_product(
 
     active_rental = (
         db.query(Rental)
-        .filter(Rental.product_id == product.id, Rental.status == "ACTIVE")
+        .filter(
+            Rental.product_id == product.id,
+            Rental.status == "ACTIVE",
+            Rental.returned_at.is_(None),
+        )
         .first()
     )
     if active_rental:
@@ -182,13 +216,16 @@ async def delete_product(
     return {"message": "deleted"}
 
 
+# =========================
+# Stock / Rental actions
+# =========================
 class QtyRequest(BaseModel):
     qty: int = Field(default=1, ge=1, description="How many units")
 
 
 class RentRequest(BaseModel):
     qty: int = Field(default=1, ge=1, description="How many units")
-    days: int = Field(default=2, ge=1, description="Rental duration in days")
+    days: int = Field(default=2, ge=1, le=30, description="Rental duration in days")
 
 
 @router.post("/{product_id}/take")
@@ -207,15 +244,20 @@ async def take_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.available_quantity < body.qty:
+    available = int(product.available_quantity or 0)
+    if available < body.qty:
         raise HTTPException(status_code=409, detail="Not enough stock")
 
-    # ✅ IMPORTANT: בגלל CHECK CONSTRAINT quantity = available + rented
-    # אסור להוריד גם quantity וגם available. quantity נשאר קבוע.
-    product.available_quantity -= body.qty
+    # ✅ TAKE: available--, taken++
+    product.available_quantity = available - body.qty
+    product.taken_quantity = int(getattr(product, "taken_quantity", 0) or 0) + body.qty
 
-    db.commit()
-    db.refresh(product)
+    validate_totals(
+        int(product.quantity or 0),
+        int(product.available_quantity or 0),
+        int(product.rented_quantity or 0),
+        int(product.taken_quantity or 0),
+    )
 
     log_action(
         db=db,
@@ -225,6 +267,9 @@ async def take_product(
         qty=body.qty,
         meta={"name": product.name},
     )
+
+    db.commit()
+    db.refresh(product)
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -247,14 +292,20 @@ async def return_taken_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    taken_out = product.quantity - product.available_quantity - product.rented_quantity
-    if taken_out < body.qty:
+    taken = int(getattr(product, "taken_quantity", 0) or 0)
+    if taken < body.qty:
         raise HTTPException(status_code=409, detail="Nothing to return (taken)")
 
-    product.available_quantity += body.qty
+    # ✅ RETURN-TAKEN: taken--, available++
+    product.taken_quantity = taken - body.qty
+    product.available_quantity = int(product.available_quantity or 0) + body.qty
 
-    db.commit()
-    db.refresh(product)
+    validate_totals(
+        int(product.quantity or 0),
+        int(product.available_quantity or 0),
+        int(product.rented_quantity or 0),
+        int(product.taken_quantity or 0),
+    )
 
     log_action(
         db=db,
@@ -264,6 +315,9 @@ async def return_taken_product(
         qty=body.qty,
         meta={"name": product.name},
     )
+
+    db.commit()
+    db.refresh(product)
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -286,27 +340,33 @@ async def rent_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.available_quantity < body.qty:
+    available = int(product.available_quantity or 0)
+    if available < body.qty:
         raise HTTPException(status_code=409, detail="Not enough stock")
 
-    product.available_quantity -= body.qty
-    product.rented_quantity += body.qty
+    # ✅ RENT: available--, rented++
+    product.available_quantity = available - body.qty
+    product.rented_quantity = int(product.rented_quantity or 0) + body.qty
 
     start = datetime.now(timezone.utc)
-    end = start + timedelta(days=body.days)
+    end = start + timedelta(days=int(body.days))
 
     rental = Rental(
-        product_id=UUID(str(product.id)),
-        user_id=UUID(str(user.id)),
+        product_id=product.id,
+        user_id=user.id,
         qty=body.qty,
         start_date=start,
         end_date=end,
-        status="open",
+        status="ACTIVE",
     )
     db.add(rental)
 
-    db.commit()
-    db.refresh(product)
+    validate_totals(
+        int(product.quantity or 0),
+        int(product.available_quantity or 0),
+        int(product.rented_quantity or 0),
+        int(getattr(product, "taken_quantity", 0) or 0),
+    )
 
     log_action(
         db=db,
@@ -314,8 +374,11 @@ async def rent_product(
         action="RENT",
         product_id=str(product.id),
         qty=body.qty,
-        meta={"name": product.name, "days": body.days, "rentalId": str(rental.id)},
+        meta={"name": product.name, "days": int(body.days), "rentalId": str(rental.id)},
     )
+
+    db.commit()
+    db.refresh(product)
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -338,14 +401,15 @@ async def return_rented_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.rented_quantity < body.qty:
+    rented = int(product.rented_quantity or 0)
+    if rented < body.qty:
         raise HTTPException(status_code=409, detail="Not enough rented items to return")
 
     rental = (
         db.query(Rental)
         .filter(
-            Rental.product_id == UUID(str(product.id)),
-            Rental.user_id == UUID(str(user.id)),
+            Rental.product_id == product.id,
+            Rental.user_id == user.id,
             Rental.status == "ACTIVE",
             Rental.returned_at.is_(None),
         )
@@ -355,17 +419,22 @@ async def return_rented_product(
     if not rental:
         raise HTTPException(status_code=409, detail="No active rental found for this product")
 
-    if rental.qty < body.qty:
+    if int(rental.qty or 0) < body.qty:
         raise HTTPException(status_code=409, detail="Return qty exceeds active rental qty")
 
-    product.rented_quantity -= body.qty
-    product.available_quantity += body.qty
+    # ✅ RETURN-RENTED: rented--, available++
+    product.rented_quantity = rented - body.qty
+    product.available_quantity = int(product.available_quantity or 0) + body.qty
 
     rental.returned_at = datetime.now(timezone.utc)
-    rental.status = "returned"
+    rental.status = "RETURNED"
 
-    db.commit()
-    db.refresh(product)
+    validate_totals(
+        int(product.quantity or 0),
+        int(product.available_quantity or 0),
+        int(product.rented_quantity or 0),
+        int(getattr(product, "taken_quantity", 0) or 0),
+    )
 
     log_action(
         db=db,
@@ -375,6 +444,9 @@ async def return_rented_product(
         qty=body.qty,
         meta={"name": product.name, "rentalId": str(rental.id)},
     )
+
+    db.commit()
+    db.refresh(product)
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
