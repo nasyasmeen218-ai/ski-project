@@ -18,15 +18,18 @@ def log_action(
     ה-caller יעשה commit פעם אחת.
     """
     try:
-        log = AuditLog(
-            actor_user_id=UUID(actor_user_id),
-            product_id=UUID(product_id) if product_id else None,
-            action=action,
-            qty=qty,
-            meta=meta,
-        )
-        db.add(log)
-        db.flush()  # לא commit
+        # Use a SAVEPOINT so a failure in audit logging will not rollback
+        # the caller's inventory/rental transaction.
+        with db.begin_nested():
+            log = AuditLog(
+                actor_user_id=UUID(actor_user_id),
+                product_id=UUID(product_id) if product_id else None,
+                action=action,
+                qty=qty,
+                meta=meta,
+            )
+            db.add(log)
+            db.flush()  # לא commit
     except Exception:
         # לא מפילים את הפעולה הראשית בגלל audit
-        db.rollback()
+        pass
