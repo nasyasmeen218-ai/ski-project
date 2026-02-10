@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Filter, Package2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
+
 import ProductCard from "../layouts/layout/ProductCard";
 import RentalDialog from "../layouts/layout/RentalDialog";
+
 
 import {
   getProducts,
@@ -11,6 +13,7 @@ import {
   rentProduct,
   returnRentedProduct,
 } from "../../api/productsApi";
+
 
 function showApiError(err, fallback = "Something went wrong") {
   if (!err?.response) return "Cannot reach server. Make sure backend is running (port 8000)";
@@ -24,9 +27,11 @@ function showApiError(err, fallback = "Something went wrong") {
   return (typeof detail === "string" && detail) || fallback;
 }
 
+
 export default function EmployeeProducts({ onRental, onTake }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -36,14 +41,18 @@ export default function EmployeeProducts({ onRental, onTake }) {
   const [maxQuantity, setMaxQuantity] = useState(100);
   const [showFilter, setShowFilter] = useState(false);
 
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+
   const [rentalProduct, setRentalProduct] = useState(null);
   const [returningProductId, setReturningProductId] = useState(null);
 
+
   const toastOpts = { position: "top-center" };
+
 
   const refreshProducts = async () => {
     try {
@@ -54,6 +63,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
       toast.error(showApiError(e, "Failed to load products"), toastOpts);
     }
   };
+
 
   useEffect(() => {
     const load = async () => {
@@ -67,10 +77,12 @@ export default function EmployeeProducts({ onRental, onTake }) {
     load();
   }, []);
 
+
   // reset page on filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory, selectedGender, selectedType, minQuantity, maxQuantity]);
+
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -78,8 +90,10 @@ export default function EmployeeProducts({ onRental, onTake }) {
       const pGender = (product.gender || "").trim().toLowerCase();
       const pName = (product.name || "").toLowerCase();
 
+
       if (searchQuery && !pName.includes(searchQuery.toLowerCase())) return false;
       if (selectedCategory !== "all" && pCat !== selectedCategory.toLowerCase()) return false;
+
 
       if (
         selectedCategory === "clothing" &&
@@ -89,10 +103,13 @@ export default function EmployeeProducts({ onRental, onTake }) {
         return false;
       }
 
+
       if (selectedType !== "all" && product.type !== selectedType) return false;
+
 
       const available = Number(product.availableQuantity ?? product.quantity ?? 0);
       if (available < minQuantity || available > maxQuantity) return false;
+
 
       return true;
     });
@@ -106,21 +123,26 @@ export default function EmployeeProducts({ onRental, onTake }) {
     maxQuantity,
   ]);
 
+
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
+
 
   const applyProductUpdate = (updatedProduct) => {
     if (!updatedProduct?.id) return;
     setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
   };
 
+
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentPage]);
+
 
   const getAvailableTypes = () => {
     if (selectedCategory === "all") return [];
@@ -130,6 +152,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
           .filter((p) => {
             const pCat = (p.category || "").trim().toLowerCase();
             const pGender = (p.gender || "").trim().toLowerCase();
+
 
             if (pCat !== selectedCategory.toLowerCase()) return false;
             if (
@@ -147,20 +170,25 @@ export default function EmployeeProducts({ onRental, onTake }) {
     );
   };
 
+
   const handleRentalOpen = (product) => setRentalProduct(product);
+
 
   // supports both:
   // (days, qty) OR ({ startDate, days, qty })
   const handleRentalConfirm = async (payloadOrDays, qty) => {
     if (!rentalProduct) return;
 
+
     const payload =
       typeof payloadOrDays === "object" && payloadOrDays !== null
         ? payloadOrDays
         : { days: payloadOrDays, qty };
 
+
     const daysNum = Number(payload.days);
     const qtyNum = Number(payload.qty ?? 1);
+
 
     if (!Number.isFinite(daysNum) || daysNum <= 0) {
       toast.error("Days must be a valid number", toastOpts);
@@ -170,6 +198,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
       toast.error("Quantity must be a valid number", toastOpts);
       return;
     }
+
 
     try {
       if (onRental) {
@@ -181,6 +210,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
         toast.success("Rented successfully", toastOpts);
       }
 
+
       setRentalProduct(null);
     } catch (e) {
       console.error(e);
@@ -188,7 +218,9 @@ export default function EmployeeProducts({ onRental, onTake }) {
     }
   };
 
+
   const handleTake = async (productId) => {
+    console.log("Taking product ID:", productId);
     try {
       if (onTake) {
         await onTake(productId, 1);
@@ -204,25 +236,30 @@ export default function EmployeeProducts({ onRental, onTake }) {
     }
   };
 
+
   const handleReturnRented = async (productId) => {
     const updated = await returnRentedProduct(productId, 1);
     applyProductUpdate(updated);
     toast.success("Returned (rented) successfully", toastOpts);
   };
 
+
   const handleUniversalReturn = async (product) => {
     try {
       const rented = Number(product.rentedQuantity ?? 0);
       const taken = Number(product.takenQuantity ?? 0); // העברתי את זה למעלה שיהיה זמין
+
 
       if (rented <= 0 && taken <= 0) {
         toast.error("Nothing to return", toastOpts);
         return;
       }
 
+
       if (rented > 0) {
         await handleReturnRented(product.id);
       }
+
 
       if (taken > 0) {
         if (onReturn) {
@@ -230,25 +267,29 @@ export default function EmployeeProducts({ onRental, onTake }) {
           toast.success("Returned (taken) successfully", toastOpts);
         } else {
           // שים לב: הפונקציה handleReturnTaken צריכה להיות מוגדרת בקובץ שלך
-          await handleReturnTaken(product.id); 
+          await handleReturnTaken(product.id);
         }
       }
 
+
       // ריענון המוצרים לאחר החזרה מוצלחת
-      await refreshProducts(); 
-      
+      await refreshProducts();
+     
     } catch (e) {
       console.error(e);
+
 
       if (e?.response?.status === 409) {
         await refreshProducts();
       }
+
 
       toast.error(showApiError(e, "Return failed"), toastOpts);
     } finally {
       setReturningProductId(null);
     }
   };
+
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -271,6 +312,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
               All
             </button>
 
+
             <button
               onClick={() => {
                 setSelectedCategory("clothing");
@@ -286,6 +328,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
             >
               Clothing
             </button>
+
 
             <button
               onClick={() => {
@@ -304,6 +347,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
             </button>
           </div>
 
+
           {selectedCategory === "clothing" && (
             <div className="flex items-center gap-3 pb-4">
               <button
@@ -318,6 +362,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                 All
               </button>
 
+
               <button
                 onClick={() => setSelectedGender("male")}
                 className={`px-4 py-1 rounded-full text-sm transition-all ${
@@ -329,6 +374,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
               >
                 Men
               </button>
+
 
               <button
                 onClick={() => setSelectedGender("female")}
@@ -346,6 +392,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
         </div>
       </div>
 
+
       <div
         className="relative bg-cover bg-center py-16 border-b"
         style={{ backgroundImage: "url('/src/assets/ski-mountains.png')" }}
@@ -356,6 +403,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
             <h2 className="text-4xl font-bold text-gray-900 mb-2">Products</h2>
             <p className="text-gray-700 text-lg font-medium">Browse and manage inventory</p>
           </div>
+
 
           <div className="flex gap-4">
             <button
@@ -370,6 +418,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
               <Filter className="w-5 h-5" />
             </button>
 
+
             <div className="flex-1 relative">
               <input
                 type="text"
@@ -383,6 +432,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
           </div>
         </div>
       </div>
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {showFilter && (
@@ -409,6 +459,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                 </div>
               )}
 
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Min Available Quantity
@@ -421,6 +472,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -437,6 +489,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
             </div>
           </div>
         )}
+
 
         {isLoading ? (
           <div className="text-gray-500 py-10 text-center font-bold">Loading products...</div>
@@ -456,6 +509,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
               ))}
             </div>
 
+
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 mt-12 pb-8">
                 <button
@@ -466,6 +520,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
+
 
                 {[...Array(totalPages)].map((_, i) => (
                   <button
@@ -481,6 +536,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                     {i + 1}
                   </button>
                 ))}
+
 
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -502,6 +558,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
         )}
       </div>
 
+
       {rentalProduct && (
         <RentalDialog
           product={rentalProduct}
@@ -512,3 +569,6 @@ export default function EmployeeProducts({ onRental, onTake }) {
     </div>
   );
 }
+
+
+
