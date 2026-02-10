@@ -32,7 +32,6 @@ function showApiError(err, fallback = "Something went wrong") {
   return detail || fallback;
 }
 
-// Promise timeout כדי שלא ניתקע על Loading לנצח
 function withTimeout(promise, ms = 8000) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timeout")), ms);
@@ -55,29 +54,24 @@ export default function CartView() {
 
   const fetchCart = async () => {
     setLoading(true);
-
     try {
       const data = await withTimeout(getMyCart(), 8000);
       setCartItems(Array.isArray(data) ? data : []);
     } catch (err) {
-
       if (String(err?.message || "").toLowerCase().includes("timeout")) {
         toast.error("Cart request timed out. Check backend / network.");
         setCartItems([]);
         return;
       }
-
       const status = err?.response?.status;
       if (status === 401 || status === 403) {
         localStorage.removeItem("token");
         localStorage.removeItem("role");
         localStorage.removeItem("username");
         toast.error(showApiError(err), { duration: 4000 });
-        toast.message("Please login again.");
         setCartItems([]);
         return;
       }
-
       toast.error(showApiError(err, "Failed to load cart items"));
       setCartItems([]);
     } finally {
@@ -101,42 +95,41 @@ export default function CartView() {
 
   const handleDelete = async (cartItemId) => {
     const result = await Swal.fire({
-            title: '?Are you sure',
-            text: "You won't be able to revert this",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it',
-            cancelButtonText: 'Cancel'
-        });
-        if (!result.isConfirmed) return;
+      title: 'Are you sure?',
+      text: "You won't be able to revert this",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
 
     try {
       await withTimeout(deleteCartItem(cartItemId), 8000);
       toast.success("Item removed");
       await fetchCart();
     } catch (err) {
-      toast.error(showApiError(err, "Could not remove item. Please try again."));
+      toast.error(showApiError(err, "Could not remove item"));
     }
   };
 
+  // תיקון לוגיקת החישוב: הבאקנד כבר מחשב מחיר ליום * ימים
   const totalPrice = useMemo(() => {
-    return cartItems.reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
-      0
-    );
+    return cartItems.reduce((sum, item) => {
+      // item.price הוא כבר המחיר הנכון (מחיר מוצר או מחיר השכרה כולל ימים)
+      const itemTotal = Number(item.price || 0) * Number(item.qty || 0);
+      return sum + itemTotal;
+    }, 0);
   }, [cartItems]);
 
   const handleCheckout = async () => {
     if (checkingOut) return;
-
     try {
       setCheckingOut(true);
-
       const order = await withTimeout(checkoutApi(), 15000);
       toast.success(`Checkout completed! Order #${order?.id ?? ""}`);
-
       setCartItems([]);
       await fetchCart();
     } catch (err) {
@@ -194,6 +187,11 @@ export default function CartView() {
                 <h3 className="font-bold text-lg text-gray-800">
                   {item.product_name}
                 </h3>
+                {item.is_rental && (
+                  <p className="text-xs text-green-600 font-bold mb-1">
+                    Rental for {item.rental_days} days
+                  </p>
+                )}
                 <p className="text-blue-600 font-semibold">
                   ₪{Number(item.price || 0).toFixed(2)}
                 </p>

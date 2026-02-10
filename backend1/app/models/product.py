@@ -20,6 +20,7 @@ class Product(Base):
     
     imageurl: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    rental_price: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     available_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rented_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

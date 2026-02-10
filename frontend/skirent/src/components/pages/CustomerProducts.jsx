@@ -45,6 +45,7 @@ export default function CustomerProducts() {
       const mapped = (data || []).map((p) => ({
         ...p,
         price: Number(p.price ?? 0),
+        rental_price: Number(p.rental_price ?? 0),
         image: p.image_url ? `http://127.0.0.1:8000/static/${p.image_url}` : null,
       }));
 
@@ -84,16 +85,19 @@ export default function CustomerProducts() {
     if (!product) return;
 
     try {
-      await api.post(`/products/${product.id}/rent`, {
-        qty,
-        days,
-        start_date: startDate,
-      });
+      await addToCart(
+        product.id, 
+        qty, 
+        true,        
+        days,        
+        product.rental_price 
+      );
 
       toast.success(`${product.name} rented for ${days} days`);
       closeRentDialog();
       await fetchMyProducts();
     } catch (err) {
+      console.error("Rental Error Details:", err); 
       toast.error(showApiError(err, "Rental failed"));
     }
   };

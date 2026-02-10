@@ -7,7 +7,6 @@ export default function CustomerProductCard({
   rentDisabled = false,
 }) {
   const imgSrc = product?.imageurl || product?.image || "https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg";
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
       <div className="relative h-52 w-full bg-gray-50 flex items-center justify-center p-4 border-b border-gray-100">
@@ -28,8 +27,14 @@ export default function CustomerProductCard({
         </h3>
 
         <p className="mt-2 text-blue-600 font-bold">
-          ₪{Number(product?.price || 0)}
+          ₪{Number(product?.price || 0).toFixed(2)}
         </p>
+
+        {product?.rental_price > 0 && (
+          <p className="mt-1 text-green-600 font-bold text-sm">
+            ₪{Number(product.rental_price).toFixed(2)} / Day (Rent)
+          </p>
+        )}
 
         <div className="mt-3 text-sm text-gray-600">
           Available:{" "}

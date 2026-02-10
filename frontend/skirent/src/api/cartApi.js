@@ -6,9 +6,15 @@ export async function getMyCart() {
   return res.data;
 }
 
-// POST /cart  { product_id, qty }
-export async function addToCart(productId, qty = 1) {
-  const res = await api.post("/cart", { product_id: productId, qty });
+// POST /cart  { product_id, qty, is_rental, rental_days, rental_price }
+export async function addToCart(productId, qty = 1, isRental = false, rentalDays = 1, rentalPrice = null) {
+  const res = await api.post("/cart", { 
+    product_id: productId, 
+    qty,
+    is_rental: isRental,
+    rental_days: rentalDays,
+    rental_price: rentalPrice
+  });
   return res.data;
 }
 
