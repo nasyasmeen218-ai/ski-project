@@ -9,7 +9,7 @@ ALLOWED_ORIGINS = [
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=ALLOWED_ORIGINS,
+    cors_allowed_origins="*",   # ✅ פותר את ה-CORS של socket.io
 )
 
 @sio.event

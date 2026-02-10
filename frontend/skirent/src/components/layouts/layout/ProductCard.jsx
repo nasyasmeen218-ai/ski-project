@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 
+
 export default function ProductCard({
   product,
   viewMode,
@@ -20,8 +21,10 @@ export default function ProductCard({
   onDelete,
   onView,
   isReturning = false,
+  isTaking = false,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
 
   const getCategoryLabel = () => {
     if (product.category === "clothing") {
@@ -30,6 +33,7 @@ export default function ProductCard({
     }
     return `${product.type}`;
   };
+
 
   const getCategoryBadge = () => {
     if (product.category === "clothing") {
@@ -44,10 +48,12 @@ export default function ProductCard({
     };
   };
 
+
   const getStockStatus = () => {
     const total = Number(product.quantity || 0);
     const available = Number(product.availableQuantity || 0);
     const percentage = total === 0 ? 0 : (available / total) * 100;
+
 
     if (percentage > 50)
       return {
@@ -65,8 +71,10 @@ export default function ProductCard({
     };
   };
 
+
   const categoryBadge = getCategoryBadge();
   const stockStatus = getStockStatus();
+
 
   // ✅ חשוב: הוספנו takenQuantity כדי שיראו את השינוי אחרי Take/Return-taken
   const available = Number(product.availableQuantity || 0);
@@ -74,10 +82,12 @@ export default function ProductCard({
   const taken = Number(product.takenQuantity || 0);
   const total = Number(product.quantity || 0);
 
+
   const handleConfirmDelete = () => {
     onDelete?.();
     setShowDeleteConfirm(false);
   };
+
 
   return (
     <>
@@ -100,6 +110,7 @@ export default function ProductCard({
           />
         </div>
 
+
         {/* Header Section */}
         <div className="px-5 pt-5 pb-4 border-b border-gray-100 bg-white">
           <div className="flex items-start justify-between gap-3">
@@ -107,6 +118,7 @@ export default function ProductCard({
               <div className="w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
                 <Package className="w-5 h-5 text-white" />
               </div>
+
 
               <div className="min-w-0">
                 <h3 className="text-base font-semibold text-gray-900 truncate">
@@ -127,6 +139,7 @@ export default function ProductCard({
               </div>
             </div>
 
+
             {viewMode === "admin" && (
               <button
                 onClick={onView}
@@ -140,11 +153,13 @@ export default function ProductCard({
             )}
           </div>
 
+
           <p className="mt-3 text-sm text-gray-600 uppercase tracking-tight">
             {product.category === "clothing" ? "Clothing" : "Equipment"} •{" "}
             {getCategoryLabel()}
           </p>
         </div>
+
 
         {/* Body - flex-1 גורם לחלק הזה למלא את השטח הנותר ולדחוף את האקשנים למטה */}
         <div className="px-5 pt-4 flex-1 flex flex-col">
@@ -155,6 +170,7 @@ export default function ProductCard({
             <Stat label="Taken" value={taken} color="text-purple-600" />
             <Stat label="Total" value={total} color="text-gray-900" />
           </div>
+
 
           {/* Reserve space so all cards align */}
           <div className="mt-3 min-h-[24px]">
@@ -171,30 +187,33 @@ export default function ProductCard({
             ) : null}
           </div>
 
+
           {/* Actions pinned to bottom using mt-auto */}
           <div className="mt-auto pb-5 pt-4">
             {viewMode === "employee" && (
               <div className="grid grid-cols-3 gap-2">
                 <ActionBtn
                   onClick={onReturn}
-                  disabled={rented === 0}
+                  disabled={isReturning || (rented === 0 && taken === 0)}
                   color="emerald"
                 >
                   {isReturning ? "Returning..." : "Return"}
                 </ActionBtn>
 
+
                 <ActionBtn
                   onClick={onTake}
-                  disabled={available === 0}
+                  disabled={isTaking || available === 0}
                   color="dark"
                 >
                   <ArrowDownUp className="w-4 h-4" />
-                  Take
+                  {isTaking ? "Taking..." : "Take"}
                 </ActionBtn>
+
 
                 <ActionBtn
                   onClick={onRental}
-                  disabled={available === 0}
+                  disabled={isTaking || available === 0}
                   color="blue"
                 >
                   <Calendar className="w-4 h-4" />
@@ -203,12 +222,14 @@ export default function ProductCard({
               </div>
             )}
 
+
             {viewMode === "admin" && (
               <div className="grid grid-cols-2 gap-2">
                 <ActionBtn onClick={onEdit} color="dark">
                   <Edit className="w-4 h-4" />
                   Edit
                 </ActionBtn>
+
 
                 <ActionBtn
                   onClick={() => setShowDeleteConfirm(true)}
@@ -222,6 +243,7 @@ export default function ProductCard({
           </div>
         </div>
       </div>
+
 
       {/* DELETE MODAL */}
       {showDeleteConfirm && (
@@ -242,6 +264,7 @@ export default function ProductCard({
               </button>
             </div>
 
+
             <div className="p-5">
               <p className="text-sm text-gray-600 leading-relaxed">
                 Are you sure you want to delete{" "}
@@ -250,6 +273,7 @@ export default function ProductCard({
                 </span>
                 ? This action cannot be undone.
               </p>
+
 
               <div className="mt-6 flex gap-3">
                 <button
@@ -275,6 +299,7 @@ export default function ProductCard({
   );
 }
 
+
 function Stat({ label, value, color }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
@@ -284,6 +309,7 @@ function Stat({ label, value, color }) {
   );
 }
 
+
 function ActionBtn({ children, onClick, disabled, color }) {
   const colors = {
     blue: "bg-blue-600 hover:bg-blue-700",
@@ -291,6 +317,7 @@ function ActionBtn({ children, onClick, disabled, color }) {
     red: "bg-rose-600 hover:bg-rose-700",
     dark: "bg-gray-900 hover:bg-black",
   };
+
 
   return (
     <button
@@ -303,3 +330,6 @@ function ActionBtn({ children, onClick, disabled, color }) {
     </button>
   );
 }
+
+
+

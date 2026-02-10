@@ -90,6 +90,18 @@ def validate_totals(quantity: int, available: int, rented: int, taken: int) -> N
         )
 
 
+def _commit_or_rollback(db: Session, error_prefix: str):
+    """
+    Prevents 'PendingRollbackError' by rolling back on any DB error.
+    Also turns DB constraint errors into clear HTTP errors.
+    """
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"{error_prefix}: {str(e)}")
+
+
 # =========================
 # CRUD
 # =========================
@@ -105,7 +117,7 @@ def list_products(
         changed = normalize_product_totals(product) or changed
 
     if changed:
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize products")
 
     return [to_product_out(p) for p in products]
 
@@ -160,7 +172,7 @@ async def create_product(
         qty=product.quantity,
         meta={"name": product.name, "category": product.category, "type": product.type},
     )
-    db.commit()
+    _commit_or_rollback(db, "Failed to write audit log")
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -184,7 +196,7 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     if payload.name is not None:
@@ -210,8 +222,12 @@ async def update_product(
         product.rental_price = payload.rental_price
 
     new_quantity = int(product.quantity if payload.quantity is None else payload.quantity)
-    new_available = int(product.available_quantity if payload.availableQuantity is None else payload.availableQuantity)
-    new_rented = int(product.rented_quantity if payload.rentedQuantity is None else payload.rentedQuantity)
+    new_available = int(
+        product.available_quantity if payload.availableQuantity is None else payload.availableQuantity
+    )
+    new_rented = int(
+        product.rented_quantity if payload.rentedQuantity is None else payload.rentedQuantity
+    )
     new_taken = int(getattr(product, "taken_quantity", 0) or 0)
 
     validate_totals(new_quantity, new_available, new_rented, new_taken)
@@ -221,7 +237,7 @@ async def update_product(
     product.rented_quantity = new_rented
     product.taken_quantity = new_taken
 
-    db.commit()
+    _commit_or_rollback(db, "Failed to update product")
     db.refresh(product)
 
     product_data = to_product_out(product)
@@ -245,7 +261,7 @@ async def delete_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     active_rental = (
@@ -261,7 +277,7 @@ async def delete_product(
         raise HTTPException(status_code=409, detail="Cannot delete product with ACTIVE rentals")
 
     db.delete(product)
-    db.commit()
+    _commit_or_rollback(db, "Failed to delete product")
 
     await sio.emit("product_updated", {"id": product_id, "action": "deleted"})
     return {"message": "deleted"}
@@ -296,7 +312,7 @@ async def take_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     available = int(product.available_quantity or 0)
@@ -306,6 +322,7 @@ async def take_product(
     product.available_quantity = available - body.qty
     product.taken_quantity = int(getattr(product, "taken_quantity", 0) or 0) + body.qty
 
+    # This might raise if DB constraint expects a different relationship.
     validate_totals(
         int(product.quantity or 0),
         int(product.available_quantity or 0),
@@ -322,7 +339,7 @@ async def take_product(
         meta={"name": product.name},
     )
 
-    db.commit()
+    _commit_or_rollback(db, "Failed to take product")
     db.refresh(product)
 
     product_data = to_product_out(product)
@@ -347,7 +364,7 @@ async def return_taken_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     taken = int(getattr(product, "taken_quantity", 0) or 0)
@@ -373,7 +390,7 @@ async def return_taken_product(
         meta={"name": product.name},
     )
 
-    db.commit()
+    _commit_or_rollback(db, "Failed to return taken product")
     db.refresh(product)
 
     product_data = to_product_out(product)
@@ -398,7 +415,7 @@ async def rent_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     available = int(product.available_quantity or 0)
@@ -437,7 +454,7 @@ async def rent_product(
         meta={"name": product.name, "days": int(body.days), "rentalId": str(rental.id)},
     )
 
-    db.commit()
+    _commit_or_rollback(db, "Failed to rent product")
     db.refresh(product)
 
     product_data = to_product_out(product)
@@ -462,7 +479,7 @@ async def return_rented_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     if normalize_product_totals(product):
-        db.commit()
+        _commit_or_rollback(db, "Failed to normalize product")
         db.refresh(product)
 
     rented = int(product.rented_quantity or 0)
@@ -517,7 +534,7 @@ async def return_rented_product(
         meta={"name": product.name, "rentalId": str(rental.id)},
     )
 
-    db.commit()
+    _commit_or_rollback(db, "Failed to return rented product")
     db.refresh(product)
 
     product_data = to_product_out(product)
