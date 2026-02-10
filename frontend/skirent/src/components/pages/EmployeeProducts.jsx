@@ -224,21 +224,19 @@ export default function EmployeeProducts({ onRental, onTake }) {
 
 
   const handleTake = async (productId) => {
-    console.log("Taking product ID:", productId);
     try {
       if (onTake) {
         await onTake(productId, 1);
-        await refreshProducts();
       } else {
-        console.log("Taking product via API:", productId);
         const updated = await takeProduct(productId, 1);
         if (updated?.id) {
           applyProductUpdate(updated);
-        } else {
-          await refreshProducts();
         }
         toast.success("Taken successfully", toastOpts);
       }
+
+      // Always sync from backend after take to avoid stale UI between environments
+      await refreshProducts();
     } catch (e) {
       console.error(e);
       toast.error(showApiError(e, "Take failed"), toastOpts);
