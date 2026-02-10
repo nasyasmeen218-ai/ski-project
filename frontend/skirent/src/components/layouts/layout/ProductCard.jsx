@@ -21,6 +21,7 @@ export default function ProductCard({
   onDelete,
   onView,
   isReturning = false,
+  isTaking = false,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -193,7 +194,7 @@ export default function ProductCard({
               <div className="grid grid-cols-3 gap-2">
                 <ActionBtn
                   onClick={onReturn}
-                  disabled={rented === 0}
+                  disabled={isReturning || (rented === 0 && taken === 0)}
                   color="emerald"
                 >
                   {isReturning ? "Returning..." : "Return"}
@@ -202,17 +203,17 @@ export default function ProductCard({
 
                 <ActionBtn
                   onClick={onTake}
-                  disabled={available === 0}
+                  disabled={isTaking || available === 0}
                   color="dark"
                 >
                   <ArrowDownUp className="w-4 h-4" />
-                  Take
+                  {isTaking ? "Taking..." : "Take"}
                 </ActionBtn>
 
 
                 <ActionBtn
                   onClick={onRental}
-                  disabled={available === 0}
+                  disabled={isTaking || available === 0}
                   color="blue"
                 >
                   <Calendar className="w-4 h-4" />

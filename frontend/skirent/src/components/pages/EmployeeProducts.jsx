@@ -50,6 +50,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
   const [rentalProduct, setRentalProduct] = useState(null);
   const [returningProductId, setReturningProductId] = useState(null);
+  const [takingProductId, setTakingProductId] = useState(null);
 
 
   const toastOpts = { position: "top-center" };
@@ -225,6 +226,10 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
 
   const handleTake = async (productId) => {
+    if (takingProductId === productId) return;
+
+    setTakingProductId(productId);
+
     try {
       if (onTake) {
         await onTake(productId, 1);
@@ -233,14 +238,16 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
         if (updated?.id) {
           applyProductUpdate(updated);
         }
-        toast.success("Taken successfully", toastOpts);
+        toast.success("Taken successfully", { ...toastOpts, id: `take-${productId}` });
       }
 
       // Always sync from backend after take to avoid stale UI between environments
       await refreshProducts();
     } catch (e) {
       console.error(e);
-      toast.error(showApiError(e, "Take failed"), toastOpts);
+      toast.error(showApiError(e, "Take failed"), { ...toastOpts, id: `take-error-${productId}` });
+    } finally {
+      setTakingProductId(null);
     }
   };
 
@@ -530,6 +537,7 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
                   onTake={() => handleTake(product.id)}
                   onReturn={() => handleUniversalReturn(product)}
                   isReturning={returningProductId === product.id}
+                  isTaking={takingProductId === product.id}
                 />
               ))}
             </div>
