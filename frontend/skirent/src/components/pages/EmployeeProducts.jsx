@@ -10,6 +10,7 @@ import RentalDialog from "../layouts/layout/RentalDialog";
 import {
   getProducts,
   takeProduct,
+  returnTakenProduct,
   rentProduct,
   returnRentedProduct,
 } from "../../api/productsApi";
@@ -28,7 +29,7 @@ function showApiError(err, fallback = "Something went wrong") {
 }
 
 
-export default function EmployeeProducts({ onRental, onTake }) {
+export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,6 +50,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
 
   const [rentalProduct, setRentalProduct] = useState(null);
   const [returningProductId, setReturningProductId] = useState(null);
+  const [takingProductId, setTakingProductId] = useState(null);
 
 
   const toastOpts = { position: "top-center" };
@@ -224,6 +226,10 @@ export default function EmployeeProducts({ onRental, onTake }) {
 
 
   const handleTake = async (productId) => {
+    if (takingProductId === productId) return;
+
+    setTakingProductId(productId);
+
     try {
       if (onTake) {
         await onTake(productId, 1);
@@ -232,14 +238,16 @@ export default function EmployeeProducts({ onRental, onTake }) {
         if (updated?.id) {
           applyProductUpdate(updated);
         }
-        toast.success("Taken successfully", toastOpts);
+        toast.success("Taken successfully", { ...toastOpts, id: `take-${productId}` });
       }
 
       // Always sync from backend after take to avoid stale UI between environments
       await refreshProducts();
     } catch (e) {
       console.error(e);
-      toast.error(showApiError(e, "Take failed"), toastOpts);
+      toast.error(showApiError(e, "Take failed"), { ...toastOpts, id: `take-error-${productId}` });
+    } finally {
+      setTakingProductId(null);
     }
   };
 
@@ -255,7 +263,20 @@ export default function EmployeeProducts({ onRental, onTake }) {
   };
 
 
+  const handleReturnTaken = async (productId) => {
+    const updated = await returnTakenProduct(productId, 1);
+    if (updated?.id) {
+      applyProductUpdate(updated);
+    } else {
+      await refreshProducts();
+    }
+    toast.success("Returned (taken) successfully", toastOpts);
+  };
+
+
   const handleUniversalReturn = async (product) => {
+    setReturningProductId(product.id);
+
     try {
       const rented = Number(product.rentedQuantity ?? 0);
       const taken = Number(product.takenQuantity ?? 0); // העברתי את זה למעלה שיהיה זמין
@@ -516,6 +537,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                   onTake={() => handleTake(product.id)}
                   onReturn={() => handleUniversalReturn(product)}
                   isReturning={returningProductId === product.id}
+                  isTaking={takingProductId === product.id}
                 />
               ))}
             </div>
@@ -580,6 +602,5 @@ export default function EmployeeProducts({ onRental, onTake }) {
     </div>
   );
 }
-
 
 
