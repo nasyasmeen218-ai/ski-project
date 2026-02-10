@@ -215,6 +215,23 @@ export default function EmployeeProducts({ onRental, onTake }) {
 
       if (rented <= 0) {
         toast.error("Return is available only for rented items", toastOpts);
+      const taken = Number(product.takenQuantity ?? 0);
+
+      if (rented > 0) {
+        await handleReturnRented(product.id);
+      }
+
+      if (taken > 0) {
+        if (onReturn) {
+          await onReturn(product.id, 1);
+          toast.success("Returned (taken) successfully", toastOpts);
+        } else {
+          await handleReturnTaken(product.id);
+        }
+      }
+
+      if (rented <= 0 && taken <= 0) {
+        toast.error("Nothing to return", toastOpts);
         return;
       }
 
