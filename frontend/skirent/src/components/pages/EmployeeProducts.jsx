@@ -209,21 +209,20 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
       const rented = Number(product.rentedQuantity ?? 0);
       const taken = Number(product.takenQuantity ?? 0);
 
-      if (rented > 0 && taken > 0) {
-        toast.error("This product has both rented and taken items. Please return a specific type.", toastOpts);
-        return;
-      }
-
       if (rented > 0) {
         await handleReturnRented(product.id);
-      } else if (taken > 0) {
+      }
+
+      if (taken > 0) {
         if (onReturn) {
           await onReturn(product.id, 1);
           toast.success("Returned (taken) successfully", toastOpts);
         } else {
           await handleReturnTaken(product.id);
         }
-      } else {
+      }
+
+      if (rented <= 0 && taken <= 0) {
         toast.error("Nothing to return", toastOpts);
         return;
       }
