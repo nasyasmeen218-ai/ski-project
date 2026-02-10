@@ -177,7 +177,11 @@ export default function EmployeeProducts({ onRental, onTake }) {
         await refreshProducts();
       } else {
         const updated = await rentProduct(rentalProduct.id, daysNum, qtyNum);
-        applyProductUpdate(updated);
+        if (updated?.id) {
+          applyProductUpdate(updated);
+        } else {
+          await refreshProducts();
+        }
         toast.success("Rented successfully", toastOpts);
       }
 
@@ -195,7 +199,11 @@ export default function EmployeeProducts({ onRental, onTake }) {
         await refreshProducts();
       } else {
         const updated = await takeProduct(productId, 1);
-        applyProductUpdate(updated);
+        if (updated?.id) {
+          applyProductUpdate(updated);
+        } else {
+          await refreshProducts();
+        }
         toast.success("Taken successfully", toastOpts);
       }
     } catch (e) {
@@ -206,7 +214,11 @@ export default function EmployeeProducts({ onRental, onTake }) {
 
   const handleReturnRented = async (productId) => {
     const updated = await returnRentedProduct(productId, 1);
-    applyProductUpdate(updated);
+    if (updated?.id) {
+      applyProductUpdate(updated);
+    } else {
+      await refreshProducts();
+    }
     toast.success("Returned (rented) successfully", toastOpts);
   };
 
