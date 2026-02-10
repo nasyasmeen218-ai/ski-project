@@ -1,6 +1,27 @@
 import api from "./client";
 
 
+function extractProductPayload(payload) {
+  if (payload == null) return payload;
+
+  if (Array.isArray(payload)) return payload;
+
+  if (typeof payload !== "object") return payload;
+
+  if (payload.product) return payload.product;
+  if (payload.item) return payload.item;
+
+  if (payload.data) {
+    if (Array.isArray(payload.data)) return payload.data;
+    if (payload.data?.product) return payload.data.product;
+    if (payload.data?.item) return payload.data.item;
+    return payload.data;
+  }
+
+  return payload;
+}
+
+
 // =========================
 // CRUD
 // =========================
@@ -35,12 +56,10 @@ export async function deleteProduct(productId) {
 
 
 export async function takeProduct(productId, qty = 1) {
-  console.log("take prod: Taking product", { productId, qty });
   const res = await api.post(`/products/${productId}/take`, {
     qty: Number(qty),
   });
-  console.log("take prod: API response", res);
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
@@ -67,6 +86,5 @@ export async function returnRentedProduct(productId, qty = 1) {
   });
   return extractProductPayload(res.data) ?? res.data;
 }
-
 
 
