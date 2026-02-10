@@ -10,6 +10,7 @@ import RentalDialog from "../layouts/layout/RentalDialog";
 import {
   getProducts,
   takeProduct,
+  returnTakenProduct,
   rentProduct,
   returnRentedProduct,
 } from "../../api/productsApi";
@@ -28,7 +29,7 @@ function showApiError(err, fallback = "Something went wrong") {
 }
 
 
-export default function EmployeeProducts({ onRental, onTake }) {
+export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -255,7 +256,20 @@ export default function EmployeeProducts({ onRental, onTake }) {
   };
 
 
+  const handleReturnTaken = async (productId) => {
+    const updated = await returnTakenProduct(productId, 1);
+    if (updated?.id) {
+      applyProductUpdate(updated);
+    } else {
+      await refreshProducts();
+    }
+    toast.success("Returned (taken) successfully", toastOpts);
+  };
+
+
   const handleUniversalReturn = async (product) => {
+    setReturningProductId(product.id);
+
     try {
       const rented = Number(product.rentedQuantity ?? 0);
       const taken = Number(product.takenQuantity ?? 0); // העברתי את זה למעלה שיהיה זמין
@@ -580,6 +594,5 @@ export default function EmployeeProducts({ onRental, onTake }) {
     </div>
   );
 }
-
 
 
