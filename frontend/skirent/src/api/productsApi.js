@@ -6,19 +6,20 @@ import api from "./client";
 // =========================
 export async function getProducts() {
   const res = await api.get("/products");
-  return res.data;
+  const normalized = extractProductPayload(res.data);
+  return Array.isArray(normalized) ? normalized : [];
 }
 
 
 export async function createProduct(payload) {
   const res = await api.post("/products", payload);
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
 export async function updateProduct(productId, payload) {
   const res = await api.put(`/products/${productId}`, payload);
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
@@ -47,7 +48,7 @@ export async function returnTakenProduct(productId, qty = 1) {
   const res = await api.post(`/products/${productId}/return-taken`, {
     qty: Number(qty),
   });
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
@@ -56,7 +57,7 @@ export async function rentProduct(productId, days, qty = 1) {
     qty: Number(qty),
     days: Number(days),
   });
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
@@ -64,7 +65,7 @@ export async function returnRentedProduct(productId, qty = 1) {
   const res = await api.post(`/products/${productId}/return-rented`, {
     qty: Number(qty),
   });
-  return res.data;
+  return extractProductPayload(res.data) ?? res.data;
 }
 
 
