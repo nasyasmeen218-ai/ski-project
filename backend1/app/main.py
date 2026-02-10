@@ -1,4 +1,6 @@
-﻿from fastapi import FastAPI
+﻿import os
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 
@@ -19,16 +21,25 @@ from app.api.admin_reports import router as admin_reports_router
 # -------------------------
 fastapi_app = FastAPI(title="SkiRent API")
 
-ALLOWED_ORIGINS = [
+DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
 ]
 
+extra_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+ALLOWED_ORIGINS = [*DEFAULT_ALLOWED_ORIGINS, *extra_origins]
+
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

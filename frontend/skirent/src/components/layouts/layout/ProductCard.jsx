@@ -177,7 +177,7 @@ export default function ProductCard({
               <div className="grid grid-cols-3 gap-2">
                 <ActionBtn
                   onClick={onReturn}
-                  disabled={rented === 0 || isReturning}
+                  disabled={rented === 0}
                   color="emerald"
                 >
                   {isReturning ? "Returning..." : "Return"}

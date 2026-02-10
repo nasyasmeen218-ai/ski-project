@@ -455,4 +455,3 @@ async def return_rented_product(
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
     return product_data
-ن
