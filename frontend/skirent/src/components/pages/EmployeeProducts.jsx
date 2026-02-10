@@ -19,7 +19,7 @@ function showApiError(err, fallback = "Something went wrong") {
   if (status === 401) return "Unauthorized (please login again)";
   if (status === 403) return "Forbidden";
   if (status === 422) return "Invalid request (check qty/days)";
-  if (status === 409) return "Conflict (nothing to return / invalid state)";
+  if (status === 409) return (typeof detail === "string" && detail) || "Conflict (nothing to return / invalid state)";
   if (status >= 500) return "Server error. Try again";
   return (typeof detail === "string" && detail) || fallback;
 }
@@ -41,6 +41,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
   const itemsPerPage = 6;
 
   const [rentalProduct, setRentalProduct] = useState(null);
+  const [returningProductId, setReturningProductId] = useState(null);
 
   const toastOpts = { position: "top-center" };
 
@@ -238,7 +239,14 @@ export default function EmployeeProducts({ onRental, onTake }) {
       
     } catch (e) {
       console.error(e);
+
+      if (e?.response?.status === 409) {
+        await refreshProducts();
+      }
+
       toast.error(showApiError(e, "Return failed"), toastOpts);
+    } finally {
+      setReturningProductId(null);
     }
   };
 
@@ -443,6 +451,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
                   onRental={() => handleRentalOpen(product)}
                   onTake={() => handleTake(product.id)}
                   onReturn={() => handleUniversalReturn(product)}
+                  isReturning={returningProductId === product.id}
                 />
               ))}
             </div>

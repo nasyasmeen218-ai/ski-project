@@ -19,6 +19,7 @@ export default function ProductCard({
   onEdit,
   onDelete,
   onView,
+  isReturning = false,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -179,7 +180,7 @@ export default function ProductCard({
                   disabled={rented === 0}
                   color="emerald"
                 >
-                  Return
+                  {isReturning ? "Returning..." : "Return"}
                 </ActionBtn>
 
                 <ActionBtn
