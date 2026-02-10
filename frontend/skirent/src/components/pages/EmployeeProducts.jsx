@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Filter, Package2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +51,9 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
   const [rentalProduct, setRentalProduct] = useState(null);
   const [returningProductId, setReturningProductId] = useState(null);
   const [takingProductId, setTakingProductId] = useState(null);
+
+  const takeInFlightRef = useRef(new Set());
+  const returnInFlightRef = useRef(new Set());
 
 
   const toastOpts = { position: "top-center" };
@@ -226,8 +229,9 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
 
   const handleTake = async (productId) => {
-    if (takingProductId === productId) return;
+    if (takeInFlightRef.current.has(productId)) return;
 
+    takeInFlightRef.current.add(productId);
     setTakingProductId(productId);
 
     try {
@@ -247,7 +251,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
       console.error(e);
       toast.error(showApiError(e, "Take failed"), { ...toastOpts, id: `take-error-${productId}` });
     } finally {
-      setTakingProductId(null);
+      takeInFlightRef.current.delete(productId);
+      setTakingProductId((prev) => (prev === productId ? null : prev));
     }
   };
 
@@ -275,6 +280,9 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
 
   const handleUniversalReturn = async (product) => {
+    if (returnInFlightRef.current.has(product.id)) return;
+
+    returnInFlightRef.current.add(product.id);
     setReturningProductId(product.id);
 
     try {
@@ -318,7 +326,8 @@ export default function EmployeeProducts({ onRental, onTake, onReturn }) {
 
       toast.error(showApiError(e, "Return failed"), toastOpts);
     } finally {
-      setReturningProductId(null);
+      returnInFlightRef.current.delete(product.id);
+      setReturningProductId((prev) => (prev === product.id ? null : prev));
     }
   };
 
