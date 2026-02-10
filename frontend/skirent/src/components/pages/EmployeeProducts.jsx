@@ -189,6 +189,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
   };
 
   const handleTake = async (productId) => {
+    console.log("Taking product ID:", productId);
     try {
       if (onTake) {
         await onTake(productId, 1);
