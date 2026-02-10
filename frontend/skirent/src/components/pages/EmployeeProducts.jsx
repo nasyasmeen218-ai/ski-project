@@ -213,18 +213,30 @@ export default function EmployeeProducts({ onRental, onTake }) {
   const handleUniversalReturn = async (product) => {
     try {
       const rented = Number(product.rentedQuantity ?? 0);
+      const taken = Number(product.takenQuantity ?? 0); // העברתי את זה למעלה שיהיה זמין
 
-      if (rented <= 0) {
-        toast.error("Return is available only for rented items", toastOpts);
+      if (rented <= 0 && taken <= 0) {
+        toast.error("Nothing to return", toastOpts);
         return;
       }
 
-      if (returningProductId === product.id) {
-        return;
+      if (rented > 0) {
+        await handleReturnRented(product.id);
       }
 
-      setReturningProductId(product.id);
-      await handleReturnRented(product.id);
+      if (taken > 0) {
+        if (onReturn) {
+          await onReturn(product.id, 1);
+          toast.success("Returned (taken) successfully", toastOpts);
+        } else {
+          // שים לב: הפונקציה handleReturnTaken צריכה להיות מוגדרת בקובץ שלך
+          await handleReturnTaken(product.id); 
+        }
+      }
+
+      // ריענון המוצרים לאחר החזרה מוצלחת
+      await refreshProducts(); 
+      
     } catch (e) {
       console.error(e);
 
