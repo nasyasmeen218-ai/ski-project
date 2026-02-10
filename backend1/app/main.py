@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import socketio
 
 from app.socket_manager import sio
+from app.db.init_db import init_db
 
 from app.api.auth import router as auth_router
 from app.api.products import router as products_router
@@ -44,6 +45,11 @@ fastapi_app.include_router(orders_router)
 fastapi_app.include_router(audit_logs_router)
 fastapi_app.include_router(admin_users_router)
 fastapi_app.include_router(admin_reports_router)
+
+
+@fastapi_app.on_event("startup")
+def startup_init_db():
+    init_db()
 
 @fastapi_app.get("/")
 def root():
