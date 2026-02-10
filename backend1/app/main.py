@@ -44,7 +44,6 @@ fastapi_app.include_router(orders_router)
 fastapi_app.include_router(audit_logs_router)
 fastapi_app.include_router(admin_users_router)
 fastapi_app.include_router(admin_reports_router)
-fastapi_app.include_router(orders_router)
 
 @fastapi_app.get("/")
 def root():

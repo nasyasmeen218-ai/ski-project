@@ -4,10 +4,6 @@ import { toast } from "sonner";
 import Navbar from "../layouts/header/Navbar";
 import ActivityDrawer from "../layouts/header/ActivityDrawer";
 
-// ❌ לא צריך יותר דיאלוג יצירה פה אם מוסיפים מתוך AdminProducts
-// import ProductFormDialog from "./layout/ProductFormDialog";
-// import { createProduct } from "../../api/productsApi";
-
 export default function DashboardLayout({
   user,
   currentView,
@@ -19,26 +15,12 @@ export default function DashboardLayout({
   onOrdersClick,
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
-
   const [showActivityDrawer, setShowActivityDrawer] = useState(false);
-
-  // ❌ לא צריך יותר states של add dialog
-  // const [showAddDialog, setShowAddDialog] = useState(false);
-  // const [saving, setSaving] = useState(false);
-
-  // ❌ לא צריך יותר create handlers
-  // const handleAddProductClick = () => {
-  //   if (!isAdmin) return;
-  //   setShowAddDialog(true);
-  // };
-
-  // const handleCreateProduct = async (productData) => { ... }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar
         onActivityClick={() => setShowActivityDrawer(true)}
-        // ✅ חשוב: לא להעביר onAddProductClick -> הכפתור העליון ייעלם
         onLogoutClick={onLogout}
         onCartClick={onCartClick}
         onOrdersClick={onOrdersClick}
@@ -59,6 +41,22 @@ export default function DashboardLayout({
               Products
             </button>
 
+            {/* ✅ Inventory Reports -> reports */}
+            {isAdmin && (
+              <button
+                onClick={() => setCurrentView("reports")}
+                className={`text-sm font-medium transition-all pb-4 ${
+                  currentView === "reports"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                type="button"
+              >
+                Inventory Reports
+              </button>
+            )}
+
+            {/* ✅ Audit Logs -> audit */}
             {isAdmin && (
               <button
                 onClick={() => setCurrentView("audit")}
@@ -69,10 +67,11 @@ export default function DashboardLayout({
                 }`}
                 type="button"
               >
-                Inventory Reports
+                Audit Logs
               </button>
             )}
 
+            {/* ✅ Employees -> employees */}
             {isAdmin && (
               <button
                 onClick={() => setCurrentView("employees")}
@@ -86,6 +85,21 @@ export default function DashboardLayout({
                 Employees
               </button>
             )}
+
+            {/* ✅ Customers -> customers */}
+            {isAdmin && (
+              <button
+                onClick={() => setCurrentView("customers")}
+                className={`text-sm font-medium transition-all pb-4 ${
+                  currentView === "customers"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                type="button"
+              >
+                Customers
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -97,8 +111,6 @@ export default function DashboardLayout({
       {showActivityDrawer && (
         <ActivityDrawer onClose={() => setShowActivityDrawer(false)} />
       )}
-
-      {/* ❌ הוסר דיאלוג Add Product מכאן כדי שלא יהיה כפתור כפול */}
     </div>
   );
 }
