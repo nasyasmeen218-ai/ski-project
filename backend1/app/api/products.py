@@ -96,6 +96,8 @@ def normalize_product_totals(product: Product) -> bool:
 
 
 
+
+
 def validate_totals(quantity: int, available: int, rented: int, taken: int) -> None:
     if quantity < 0 or available < 0 or rented < 0 or taken < 0:
         raise HTTPException(status_code=400, detail="Quantities cannot be negative")
@@ -332,6 +334,8 @@ class RentRequest(BaseModel):
 
 
 
+
+
 @router.post("/{product_id}/take")
 async def take_product(
     product_id: str,
@@ -389,6 +393,10 @@ async def take_product(
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
     return product_data
+
+
+
+
 
 
 

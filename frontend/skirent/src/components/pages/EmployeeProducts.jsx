@@ -226,6 +226,7 @@ export default function EmployeeProducts({ onRental, onTake }) {
         await onTake(productId, 1);
         await refreshProducts();
       } else {
+        console.log("Taking product via API:", productId);
         const updated = await takeProduct(productId, 1);
         applyProductUpdate(updated);
         toast.success("Taken successfully", toastOpts);
