@@ -37,7 +37,7 @@ def to_product_out(p: Product) -> dict:
         "quantity": int(p.quantity or 0),
         "availableQuantity": available,
         "rentedQuantity": rented,
-        "takenQuantity": taken,  # ✅ חדש (לא חובה בפרונט, אבל שימושי)
+        "takenQuantity": taken,
         "imageurl": p.imageurl,
         "is_available": available > 0,
         "max_qty_allowed": max(available, 0),
@@ -72,7 +72,7 @@ async def create_product(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    taken = 0  # default
+    taken = 0
 
     validate_totals(
         quantity=int(data.quantity),
@@ -96,7 +96,7 @@ async def create_product(
         quantity=data.quantity,
         available_quantity=data.availableQuantity,
         rented_quantity=data.rentedQuantity,
-        taken_quantity=taken,  # ✅
+        taken_quantity=taken,
         imageurl=data.imageurl,
     )
 
@@ -108,7 +108,6 @@ async def create_product(
         raise HTTPException(status_code=409, detail="Product already exists")
     db.refresh(product)
 
-    # ✅ audit בלי commit פנימי
     log_action(
         db=db,
         actor_user_id=str(admin.id),
@@ -117,7 +116,7 @@ async def create_product(
         qty=product.quantity,
         meta={"name": product.name, "category": product.category, "type": product.type},
     )
-    db.commit()  # commit של ה-audit flush
+    db.commit()
 
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
@@ -248,7 +247,6 @@ async def take_product(
     if available < body.qty:
         raise HTTPException(status_code=409, detail="Not enough stock")
 
-    # ✅ TAKE: available--, taken++
     product.available_quantity = available - body.qty
     product.taken_quantity = int(getattr(product, "taken_quantity", 0) or 0) + body.qty
 
@@ -296,7 +294,6 @@ async def return_taken_product(
     if taken < body.qty:
         raise HTTPException(status_code=409, detail="Nothing to return (taken)")
 
-    # ✅ RETURN-TAKEN: taken--, available++
     product.taken_quantity = taken - body.qty
     product.available_quantity = int(product.available_quantity or 0) + body.qty
 
@@ -344,7 +341,6 @@ async def rent_product(
     if available < body.qty:
         raise HTTPException(status_code=409, detail="Not enough stock")
 
-    # ✅ RENT: available--, rented++
     product.available_quantity = available - body.qty
     product.rented_quantity = int(product.rented_quantity or 0) + body.qty
 
@@ -405,29 +401,37 @@ async def return_rented_product(
     if rented < body.qty:
         raise HTTPException(status_code=409, detail="Not enough rented items to return")
 
-    rental = (
+    q = (
         db.query(Rental)
         .filter(
             Rental.product_id == product.id,
-            Rental.user_id == user.id,
             Rental.status == "ACTIVE",
             Rental.returned_at.is_(None),
         )
         .order_by(Rental.created_at.desc())
-        .first()
     )
+
+    # ✅ employee/admin can return any active rental
+    # ✅ customer can return only his own rentals
+    if getattr(user, "role", None) == "customer":
+        q = q.filter(Rental.user_id == user.id)
+
+    rental = q.first()
     if not rental:
         raise HTTPException(status_code=409, detail="No active rental found for this product")
 
     if int(rental.qty or 0) < body.qty:
         raise HTTPException(status_code=409, detail="Return qty exceeds active rental qty")
 
-    # ✅ RETURN-RENTED: rented--, available++
     product.rented_quantity = rented - body.qty
     product.available_quantity = int(product.available_quantity or 0) + body.qty
 
-    rental.returned_at = datetime.now(timezone.utc)
-    rental.status = "RETURNED"
+    # if returning partial qty, keep rental ACTIVE with reduced qty
+    if int(rental.qty) > body.qty:
+        rental.qty = int(rental.qty) - body.qty
+    else:
+        rental.returned_at = datetime.now(timezone.utc)
+        rental.status = "RETURNED"
 
     validate_totals(
         int(product.quantity or 0),
@@ -451,3 +455,4 @@ async def return_rented_product(
     product_data = to_product_out(product)
     await sio.emit("product_updated", product_data)
     return product_data
+ن
