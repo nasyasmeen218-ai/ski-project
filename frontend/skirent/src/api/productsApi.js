@@ -56,6 +56,7 @@ export async function deleteProduct(productId) {
 
 
 export async function takeProduct(productId, qty = 1) {
+  console.log("take prod: Taking product", { productId, qty });
   const res = await api.post(`/products/${productId}/take`, {
     qty: Number(qty),
   });
