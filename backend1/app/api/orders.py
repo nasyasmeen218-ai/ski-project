@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +16,6 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 def _ensure_customer(user: User):
-    # ✅ רק לקוח יכול להשתמש בהזמנות
     if user.role != "customer":
         raise HTTPException(status_code=403, detail="Customers only")
 
@@ -32,7 +31,6 @@ def create_order(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain items")
 
-    # validate product ids
     try:
         product_ids = [UUID(i.product_id) for i in payload.items]
     except Exception:
@@ -41,31 +39,28 @@ def create_order(
     products = db.query(Product).filter(Product.id.in_(product_ids)).all()
     products_map = {str(p.id): p for p in products}
 
-    # stock check
-    for it in payload.items:
-        if it.product_id not in products_map:
-            raise HTTPException(status_code=404, detail=f"Product not found: {it.product_id}")
+    for item in payload.items:
+        if item.product_id not in products_map:
+            raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id}")
 
-        p = products_map[it.product_id]
-        available = getattr(p, "available_quantity", None)
-
-        if isinstance(available, int) and it.qty > available:
-            raise HTTPException(status_code=409, detail=f"Not enough stock for product {it.product_id}")
+        product = products_map[item.product_id]
+        if item.qty > int(product.available_quantity or 0):
+            raise HTTPException(status_code=409, detail="Not enough stock")
 
     order = Order(customer_id=current_user.id, status="pending")
     db.add(order)
-    db.flush()  # generate order.id
+    db.flush()
 
-    items_rows = []
-    for it in payload.items:
-        row = OrderItem(
+    order_items = [
+        OrderItem(
             order_id=order.id,
-            product_id=UUID(it.product_id),
-            qty=it.qty,
+            product_id=UUID(item.product_id),
+            qty=item.qty,
             price_at_order=None,
         )
-        db.add(row)
-        items_rows.append(row)
+        for item in payload.items
+    ]
+    db.add_all(order_items)
 
     db.commit()
     db.refresh(order)
@@ -77,12 +72,12 @@ def create_order(
         created_at=order.created_at,
         items=[
             OrderItemResponse(
-                id=str(r.id),
-                product_id=str(r.product_id),
-                qty=r.qty,
-                price_at_order=float(r.price_at_order) if r.price_at_order is not None else None,
+                id=str(oi.id),
+                product_id=str(oi.product_id),
+                qty=oi.qty,
+                price_at_order=oi.price_at_order,
             )
-            for r in items_rows
+            for oi in order_items
         ],
     )
 
@@ -101,25 +96,31 @@ def my_orders(
         .all()
     )
 
-    result: List[OrderResponse] = []
-    for o in orders:
-        items = db.query(OrderItem).filter(OrderItem.order_id == o.id).all()
-        result.append(
-            OrderResponse(
-                id=str(o.id),
-                customer_id=str(o.customer_id),
-                status=o.status,
-                created_at=o.created_at,
-                items=[
-                    OrderItemResponse(
-                        id=str(i.id),
-                        product_id=str(i.product_id),
-                        qty=i.qty,
-                        price_at_order=float(i.price_at_order) if i.price_at_order is not None else None,
-                    )
-                    for i in items
-                ],
-            )
-        )
+    if not orders:
+        return []
 
-    return result
+    order_ids = [o.id for o in orders]
+    items = db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).all()
+
+    items_map: Dict[UUID, list[OrderItem]] = {}
+    for item in items:
+        items_map.setdefault(item.order_id, []).append(item)
+
+    return [
+        OrderResponse(
+            id=str(order.id),
+            customer_id=str(order.customer_id),
+            status=order.status,
+            created_at=order.created_at,
+            items=[
+                OrderItemResponse(
+                    id=str(i.id),
+                    product_id=str(i.product_id),
+                    qty=i.qty,
+                    price_at_order=i.price_at_order,
+                )
+                for i in items_map.get(order.id, [])
+            ],
+        )
+        for order in orders
+    ]

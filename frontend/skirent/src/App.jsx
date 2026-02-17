@@ -16,17 +16,28 @@ import CustomerProducts from "./components/pages/CustomerProducts";
 import CartView from "./components/pages/CartView";
 import MyOrders from "./components/pages/MyOrders";
 
+import Dashboard from "./components/pages/Dashboard";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 function AppContent() {
   const { user, isAuthenticated, isLoadingUser, logout, refreshMe } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
-  const [currentView, setCurrentView] = useState("products");
+
+  // ✅ מסך נחיתה חדש כברירת מחדל אחרי התחברות
+  const [currentView, setCurrentView] = useState("dashboard");
+
   const [refreshProductsSignal, setRefreshProductsSignal] = useState(0);
 
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
   const isEmployee = useMemo(() => user?.role === "employee", [user]);
   const isCustomer = useMemo(() => user?.role === "customer", [user]);
+
+  // ✅ אם המשתמש התחבר עכשיו (או ריפרש), נוודא שנוחתים על Dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      setCurrentView("dashboard");
+    }
+  }, [isAuthenticated]);
 
   // ✅ חסימת גישה למסכים של אדמין למי שלא אדמין (כולל reports + customers)
   useEffect(() => {
@@ -41,9 +52,10 @@ function AppContent() {
     }
   }, [isAdmin, currentView]);
 
-  // ✅ הגנה קטנה: אם currentView לא מוכר (מונע מסך ריק) - כולל customers
+  // ✅ הגנה קטנה: אם currentView לא מוכר (מונע מסך ריק)
   useEffect(() => {
     const allowed = new Set([
+      "dashboard",
       "products",
       "cart",
       "orders",
@@ -53,7 +65,7 @@ function AppContent() {
       "customers",
     ]);
     if (!allowed.has(currentView)) {
-      setCurrentView("products");
+      setCurrentView("dashboard");
     }
   }, [currentView]);
 
@@ -92,6 +104,8 @@ function AppContent() {
         onRegisterClick={() => setShowRegister(true)}
         onLoginSuccess={async () => {
           await refreshMe?.();
+          // ✅ אחרי לוגין: נחיתה בדאשבורד
+          setCurrentView("dashboard");
         }}
       />
     );
@@ -106,7 +120,13 @@ function AppContent() {
       onProductCreated={() => setRefreshProductsSignal((n) => n + 1)}
       onCartClick={() => setCurrentView("cart")}
       onOrdersClick={() => setCurrentView("orders")}
+      onLogoClick={() => setCurrentView("dashboard")} // ✅ חדש: לחיצה על לוגו -> Dashboard
     >
+      {/* ✅ Dashboard / Landing */}
+      {currentView === "dashboard" && (
+        <Dashboard user={user} setCurrentView={setCurrentView} />
+      )}
+
       {currentView === "products" && (
         <>
           {isEmployee && <EmployeeProducts />}

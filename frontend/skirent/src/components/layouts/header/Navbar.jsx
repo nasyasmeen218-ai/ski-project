@@ -9,7 +9,8 @@ export default function Navbar({
   onLogoutClick,
   onCartClick,
   onOrdersClick,
-  hideAddProductButton = false, // ✅ חדש: להסתיר כפתור Add Product כשצריך
+  onLogoClick, // ✅ חדש
+  hideAddProductButton = false,
 }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -34,7 +35,15 @@ export default function Navbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="SkiRent" className="h-10 w-auto" />
+            {/* ✅ הלוגו עכשיו לחיץ -> מחזיר לדאשבורד */}
+            <button
+              onClick={() => onLogoClick?.()}
+              className="flex items-center gap-3"
+              type="button"
+              title="Go to Dashboard"
+            >
+              <img src={logo} alt="SkiRent" className="h-10 w-auto cursor-pointer" />
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -105,7 +114,9 @@ export default function Navbar({
                         {user?.username || user?.name || "User"}
                       </p>
                       {user?.email && <p className="text-sm text-gray-600">{user.email}</p>}
-                      <p className="text-xs text-gray-500 mt-1">Role: {getRoleDisplay(user?.role)}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Role: {getRoleDisplay(user?.role)}
+                      </p>
                     </div>
 
                     <div className="p-2">

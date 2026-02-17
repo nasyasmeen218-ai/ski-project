@@ -13,6 +13,7 @@ export default function DashboardLayout({
   onProductCreated,
   onCartClick,
   onOrdersClick,
+  onLogoClick, // ✅ חדש
 }) {
   const isAdmin = useMemo(() => user?.role === "admin", [user]);
   const [showActivityDrawer, setShowActivityDrawer] = useState(false);
@@ -24,11 +25,26 @@ export default function DashboardLayout({
         onLogoutClick={onLogout}
         onCartClick={onCartClick}
         onOrdersClick={onOrdersClick}
+        onLogoClick={onLogoClick} // ✅ חדש: הלוגו מפעיל ניווט לדאשבורד
+        hideAddProductButton={currentView === "dashboard"} // ✅ אופציונלי: להסתיר +Add Product בדאשבורד
       />
 
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6 h-14 items-end">
+            {/* ✅ חדש: Dashboard */}
+            <button
+              onClick={() => setCurrentView("dashboard")}
+              className={`text-sm font-medium transition-all pb-4 ${
+                currentView === "dashboard"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              type="button"
+            >
+              Dashboard
+            </button>
+
             <button
               onClick={() => setCurrentView("products")}
               className={`text-sm font-medium transition-all pb-4 ${
